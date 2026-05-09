@@ -127,7 +127,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
       <p>Sign in to continue your journey with your coach.</p>
     </div>
     <?php if ($error): ?><div class="error-msg">⚠ <?= h($error) ?></div><?php endif ?>
-    <form method="POST" autocomplete="on">
+    <form method="POST" action="/login.php" autocomplete="on">
       <input type="hidden" name="csrf" value="<?= csrf_token() ?>"/>
       <div class="field">
         <label>Email address</label>
@@ -144,5 +144,21 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
     <div class="signup-link">New to Solen? <a href="/register.php">Start your free trial</a> — no card needed.</div>
   </div>
 </div>
+<script>
+// Forcibly unregister the broken service worker that swallows POST requests
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    for(let registration of registrations) {
+      registration.unregister();
+    }
+  });
+}
+// Ensure the button works
+document.querySelector('form').addEventListener('submit', function(e) {
+  const btn = document.querySelector('.btn-submit');
+  btn.textContent = 'Signing in...';
+  btn.style.opacity = '0.7';
+});
+</script>
 </body>
 </html>

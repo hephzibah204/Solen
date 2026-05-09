@@ -117,7 +117,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
     </div>
     <div class="trial-badge">✓ <?= $trialDays ?>-day free trial · No credit card required</div>
     <?php if ($error): ?><div class="error-msg">⚠ <?= h($error) ?></div><?php endif ?>
-    <form method="POST" autocomplete="on">
+    <form method="POST" action="/register.php" autocomplete="on">
       <input type="hidden" name="csrf" value="<?= csrf_token() ?>"/>
       <div class="field"><label>Your name</label><input type="text" name="name" required autofocus autocomplete="name" value="<?= h($_POST['name']??'') ?>" placeholder="Jane Smith"/></div>
       <div class="field"><label>Email address</label><input type="email" name="email" required autocomplete="email" value="<?= h($_POST['email']??'') ?>" placeholder="you@example.com"/></div>
@@ -128,5 +128,21 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
     <p class="fine">By creating an account you agree to our Terms and Privacy Policy.<br>Solen is not a medical service. In crisis? Call or text 988.</p>
   </div>
 </div>
+<script>
+// Forcibly unregister the broken service worker that swallows POST requests
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    for(let registration of registrations) {
+      registration.unregister();
+    }
+  });
+}
+// Ensure the button works
+document.querySelector('form').addEventListener('submit', function(e) {
+  const btn = document.querySelector('.btn-submit');
+  btn.textContent = 'Creating account...';
+  btn.style.opacity = '0.7';
+});
+</script>
 </body>
 </html>
