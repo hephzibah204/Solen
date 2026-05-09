@@ -7,17 +7,14 @@ require_once __DIR__ . '/db.php';
 // ("log out all devices") while keeping the cookie-session UX unchanged.
 
 if (session_status() === PHP_SESSION_NONE) {
-    // Determine HTTPS for secure cookie flag
-    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-             || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    // Force sessions to save locally to bypass unwritable /tmp directories on shared hosts
+    $sessionPath = dirname(__DIR__) . '/database/sessions';
+    if (!is_dir($sessionPath)) {
+        @mkdir($sessionPath, 0755, true);
+    }
+    session_save_path($sessionPath);
 
-    session_set_cookie_params(
-        0,                 // lifetime
-        '/',               // path
-        '',                // domain
-        $isSecure,         // secure
-        true               // httponly
-    );
+    // Let the server handle its own default cookie parameters
     session_start();
 }
 
