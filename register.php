@@ -1,10 +1,15 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/functions.php';
 if (is_logged_in()) redirect('/app.php');
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!verify_csrf($_POST['csrf'] ?? '')) { $error = 'Invalid request.'; }
+    if (!verify_csrf($_POST['csrf'] ?? '')) { 
+        $error = 'Invalid request. (Debug -> Session: ' . ($_SESSION['csrf'] ?? 'EMPTY') . ' | POST: ' . ($_POST['csrf'] ?? 'EMPTY') . ')'; 
+    }
     else {
         $result = register_user(trim($_POST['name'] ?? ''), trim($_POST['email'] ?? ''), trim($_POST['password'] ?? ''));
         if ($result['ok']) redirect('/app.php');
@@ -63,7 +68,8 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .login-link{text-align:center;font-size:14px;color:var(--muted);margin-top:24px}
 .login-link a{color:var(--accent);font-weight:500;text-decoration:none}
 .fine{text-align:center;font-size:11px;color:rgba(242,237,232,0.2);margin-top:16px;line-height:1.7}
-@media(max-width:860px){body{grid-template-columns:1fr;overflow:auto}.left{display:none}.right{min-height:100vh;padding:32px 24px}}
+.mobile-logo{display:none;font-family:'Playfair Display',serif;font-size:28px;color:var(--accent);text-decoration:none;align-items:center;gap:12px;margin-bottom:32px;justify-content:center}
+@media(max-width:860px){body{grid-template-columns:1fr;overflow:auto}.left{display:none}.right{min-height:100vh;padding:32px 24px}.mobile-logo{display:flex}}
 </style>
 </head>
 <body>
@@ -109,6 +115,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 </div>
 <div class="right">
   <div class="form-box">
+    <a href="/" class="mobile-logo"><div class="logo-dot"></div>Solen</a>
     <div class="form-header">
       <h2>Start for free</h2>
       <p>Create your account and meet your personalized wellness coach in minutes.</p>

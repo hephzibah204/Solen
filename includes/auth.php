@@ -11,12 +11,13 @@ if (session_status() === PHP_SESSION_NONE) {
     $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
              || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 
-    session_set_cookie_params([
-        'lifetime' => 0,
-        'secure'   => $isSecure,
-        'httponly' => true,
-        'samesite' => 'Lax'
-    ]);
+    session_set_cookie_params(
+        0,                 // lifetime
+        '/',               // path
+        '',                // domain
+        $isSecure,         // secure
+        true               // httponly
+    );
     session_start();
 }
 

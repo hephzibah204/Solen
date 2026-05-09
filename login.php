@@ -89,7 +89,8 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 .signup-link{text-align:center;font-size:14px;color:var(--muted)}
 .signup-link a{color:var(--accent);text-decoration:none;font-weight:500}
 .forgot{font-size:12px;color:var(--muted);text-align:right;display:block;margin-top:8px;cursor:pointer}
-@media(max-width:860px){body{grid-template-columns:1fr;overflow:auto}.left{display:none}.right{min-height:100vh;padding:32px 24px}}
+.mobile-logo{display:none;font-family:'Playfair Display',serif;font-size:28px;color:var(--accent);text-decoration:none;align-items:center;gap:12px;margin-bottom:32px;justify-content:center}
+@media(max-width:860px){body{grid-template-columns:1fr;overflow:auto}.left{display:none}.right{min-height:100vh;padding:32px 24px}.mobile-logo{display:flex}}
 </style>
 </head>
 <body>
@@ -119,6 +120,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
 </div>
 <div class="right">
   <div class="form-box">
+    <a href="/" class="mobile-logo"><div class="logo-dot"></div>Solen</a>
     <div class="form-header">
       <h2>Welcome back</h2>
       <p>Sign in to continue your journey with your coach.</p>
