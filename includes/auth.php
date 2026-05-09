@@ -16,14 +16,27 @@ header("Pragma: no-cache");
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-/** Validate that the current PHP session has a live row in user_sessions. */
+/** Validate that the current session or cookie has a live row in user_sessions. */
 function _session_is_valid(): bool {
-    if (empty($_SESSION['user_id']) || empty($_SESSION['db_token'])) return false;
+    $token = $_COOKIE['solen_auth'] ?? $_SESSION['db_token'] ?? '';
+    if (!$token) return false;
+
     $row = db_one(
-        "SELECT id FROM user_sessions WHERE token=? AND user_id=? AND expires_at > datetime('now')",
-        [$_SESSION['db_token'], $_SESSION['user_id']]
+        "SELECT user_id FROM user_sessions WHERE token=? AND expires_at > datetime('now')",
+        [$token]
     );
-    return (bool)$row;
+    if ($row) {
+        // Hydrate session so helpers like current_user() keep working seamlessly
+        $user = db_one("SELECT id, role, name FROM users WHERE id=?", [$row['user_id']]);
+        if ($user) {
+            $_SESSION['user_id']   = $user['id'];
+            $_SESSION['user_role'] = $user['role'];
+            $_SESSION['user_name'] = $user['name'];
+            $_SESSION['db_token']  = $token;
+            return true;
+        }
+    }
+    return false;
 }
 
 function login_user(string $email, string $password): bool {
@@ -62,6 +75,11 @@ function login_user(string $email, string $password): bool {
         [$user['id'], $user['id']]
     );
 
+    // Set dedicated HTTP-only cookie to bypass broken PHP Sessions
+    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+             || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    setcookie('solen_auth', $token, time() + (30 * 86400), '/', '', $isSecure, true);
+
     $_SESSION['user_id']   = $user['id'];
     $_SESSION['user_role'] = $user['role'];
     $_SESSION['user_name'] = $user['name'];
@@ -72,9 +90,11 @@ function login_user(string $email, string $password): bool {
 }
 
 function logout_user(): void {
-    if (!empty($_SESSION['db_token'])) {
-        db_run("DELETE FROM user_sessions WHERE token=?", [$_SESSION['db_token']]);
+    $token = $_COOKIE['solen_auth'] ?? $_SESSION['db_token'] ?? '';
+    if ($token) {
+        db_run("DELETE FROM user_sessions WHERE token=?", [$token]);
     }
+    setcookie('solen_auth', '', time() - 3600, '/');
     session_destroy();
     header('Location: /login.php');
     exit;
@@ -84,12 +104,14 @@ function logout_user(): void {
 function logout_all_devices(int $userId): void {
     db_run("DELETE FROM user_sessions WHERE user_id=?", [$userId]);
     if (($_SESSION['user_id'] ?? 0) == $userId) {
+        setcookie('solen_auth', '', time() - 3600, '/');
         session_destroy();
     }
 }
 
 function is_logged_in(): bool {
     if (!_session_is_valid()) {
+        setcookie('solen_auth', '', time() - 3600, '/');
         session_destroy();
         return false;
     }
@@ -152,6 +174,12 @@ function register_user(string $name, string $email, string $password): array {
         "INSERT INTO user_sessions (user_id, token, expires_at) VALUES (?, ?, datetime('now','+30 days'))",
         [$userId, $token]
     );
+    
+    // Set dedicated HTTP-only cookie
+    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+             || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    setcookie('solen_auth', $token, time() + (30 * 86400), '/', '', $isSecure, true);
+
     $_SESSION['user_id']   = $userId;
     $_SESSION['user_role'] = 'user';
     $_SESSION['user_name'] = $name;

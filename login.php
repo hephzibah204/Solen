@@ -29,10 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Too many failed attempts. Please wait ' . ceil(($LOCKOUT_SECS - (time()-$failTime))/60) . ' minutes before trying again.';
     } else {
         $ok = login_user($_POST['email'] ?? '', $_POST['password'] ?? '');
-        if ($ok) {
-            // DEBUG: Stop redirect to see if session is actually populated
-            die("<h1>Login Successful (Debug Halt)</h1><p>Session user_id: " . ($_SESSION['user_id'] ?? 'EMPTY') . "</p><p>Session db_token: " . ($_SESSION['db_token'] ?? 'EMPTY') . "</p><p><a href='/app.php'>Click here to manually continue to Dashboard</a></p><p>If you click that link and it asks you to login again, your server is refusing to save PHP Sessions.</p>");
-        }
+        if ($ok) redirect(is_admin() ? '/admin/index.php' : ($_GET['next'] ?? '/app.php'));
         else {
             $fails = $_SESSION['login_fails'] ?? 0;
             $remaining = max(0, $MAX_FAILS - $fails);
