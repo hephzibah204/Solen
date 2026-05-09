@@ -301,6 +301,37 @@ HTML;
  * Send a password reset email.
  * $token is the raw reset token (not hashed).
  */
+function send_payment_success_email(string $to, string $name, string $plan, float $amount): bool {
+    $site    = get_setting('site_name', 'Solen');
+    $siteUrl = rtrim(get_setting('canonical_url') ?: SITE_URL, '/');
+    $first   = explode(' ', trim($name))[0];
+    $planName = ucfirst($plan);
+    $price    = number_format($amount, 2);
+
+    $content = <<<HTML
+<h1 style="margin:0 0 8px;font-family:'Georgia',serif;font-size:26px;font-weight:400;color:#f0ede8;">Payment received, {$first}. ✦</h1>
+<p style="margin:0 0 24px;font-size:15px;color:rgba(240,237,232,0.45);line-height:1.6;">Your {$planName} subscription is now active.</p>
+
+<p style="margin:0 0 20px;font-size:16px;color:#f0ede8;line-height:1.75;">
+  Thank you for supporting Solen. Your payment of <strong>\${$price}</strong> has been processed successfully. Your coach now has full access to all premium features, including advanced memory, voice sessions, and growth programs.
+</p>
+
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:24px;">
+  <tr><td align="center">
+    <a href="{$siteUrl}/app.php" style="display:inline-block;background:#c5a572;color:#1a1008;padding:14px 36px;border-radius:50px;text-decoration:none;font-family:Arial,sans-serif;font-size:15px;font-weight:600;">Back to your Coach →</a>
+  </td></tr>
+</table>
+
+<p style="margin:0;font-size:13px;color:rgba(240,237,232,0.35);line-height:1.7;">
+  You can manage your subscription anytime from your dashboard settings.
+  <br/>Need a formal PDF invoice? Just reply to this email.
+</p>
+HTML;
+
+    $html = email_layout($content, "Confirmation: Your payment for Solen {$planName} was successful.");
+    return send_email($to, "Subscription Confirmed — Solen {$planName}", $html);
+}
+
 function send_password_reset_email(string $to, string $name, string $token): bool {
     $site    = get_setting('site_name', 'Solen');
     $siteUrl = rtrim(get_setting('canonical_url') ?: SITE_URL, '/');

@@ -190,4 +190,10 @@ function activate_plan(int $userId, string $plan, string $billing, float $amount
          VALUES (?, ?, 'active', ?, ?, ?, ?)",
         [$userId, $plan, $amount, $billing, $expires, "{$gateway}:{$ref}"]
     );
+
+    // Confirmation Email
+    $user = db_one("SELECT name, email FROM users WHERE id=?", [$userId]);
+    if ($user) {
+        send_payment_success_email($user['email'], $user['name'], $plan, $amount);
+    }
 }

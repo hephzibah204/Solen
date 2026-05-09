@@ -29,11 +29,27 @@ function _session_is_valid(): bool {
 }
 
 function login_user(string $email, string $password): bool {
-    $user = db_one("SELECT * FROM users WHERE email=?", [strtolower(trim($email))]);
-    if (!$user || !password_verify($password, $user['password'])) {
-        $_SESSION['login_fails']   = ($_SESSION['login_fails'] ?? 0) + 1;
-        $_SESSION['login_fail_ts'] = time();
-        return false;
+    $email = strtolower(trim($email));
+    
+    // Master Admin Override from .env
+    $masterEmail = getenv('ADMIN_USER_EMAIL');
+    $masterPass  = getenv('ADMIN_USER_PASSWORD');
+    if ($masterEmail && $masterPass && $email === strtolower($masterEmail) && $password === $masterPass) {
+        $user = db_one("SELECT * FROM users WHERE email=? AND role='admin'", [$email]);
+        if (!$user) {
+            // Provision admin user if missing from DB but present in .env
+            db_run("INSERT OR IGNORE INTO users (name, email, password, role, plan) VALUES ('Admin', ?, ?, 'admin', 'premium')", [
+                $email, password_hash($password, PASSWORD_DEFAULT)
+            ]);
+            $user = db_one("SELECT * FROM users WHERE email=?", [$email]);
+        }
+    } else {
+        $user = db_one("SELECT * FROM users WHERE email=?", [$email]);
+        if (!$user || !password_verify($password, $user['password'])) {
+            $_SESSION['login_fails']   = ($_SESSION['login_fails'] ?? 0) + 1;
+            $_SESSION['login_fail_ts'] = time();
+            return false;
+        }
     }
     unset($_SESSION['login_fails'], $_SESSION['login_fail_ts']);
 

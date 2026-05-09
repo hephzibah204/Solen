@@ -211,6 +211,12 @@ function db_count(string $table, string $where = '1', array $params = []): int {
 }
 
 function get_setting(string $key, string $default = ''): string {
+    // Priority 1: Environment Variables (e.g. from .env)
+    $envKey = strtoupper($key);
+    $val = getenv($envKey);
+    if ($val !== false) return (string)$val;
+
+    // Priority 2: Database Settings
     $row = db_one("SELECT value FROM settings WHERE key=?", [$key]);
     return $row ? $row['value'] : $default;
 }

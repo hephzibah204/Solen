@@ -133,6 +133,10 @@ $site = get_setting('site_name', 'Solen');
         .insight-text { font-size: 15px; color: rgba(255,255,255,0.85); line-height: 1.6; }
         .insight-type { display: inline-block; font-size: 10px; background: var(--surface-light); padding: 2px 8px; border-radius: 4px; color: var(--accent); margin-top: 12px; }
 
+        .intel-banner { background: var(--accent-glow); border: 1px solid rgba(184, 149, 106, 0.2); border-radius: 24px; padding: 32px; margin-bottom: 40px; position: relative; overflow: hidden; }
+        .intel-banner h3 { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 12px; }
+        .intel-banner p { font-size: 15px; opacity: 0.8; max-width: 600px; }
+
         .empty-state { text-align: center; padding: 60px 0; color: var(--muted); border: 1px dashed var(--border); border-radius: 20px; }
 
         @media (max-width: 850px) {
@@ -144,9 +148,13 @@ $site = get_setting('site_name', 'Solen');
 <body>
 
 <div class="container">
-    <div style="margin-bottom: 32px;">
+    <div style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center;">
         <a href="/app.php" style="color: var(--muted); text-decoration: none; font-size: 14px;">← Back to Coach</a>
+        <span style="font-size: 12px; opacity: 0.4; letter-spacing: 0.1em;">SOLEN CORE INTELLIGENCE</span>
     </div>
+
+    <!-- LIFE INTELLIGENCE BANNER -->
+    <div id="intel-banner-container"></div>
 
     <div class="layout">
         <!-- THE GROWTH CARD -->
@@ -217,6 +225,29 @@ $site = get_setting('site_name', 'Solen');
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
+async function fetchLifeIntel() {
+    const container = document.getElementById('intel-banner-container');
+    try {
+        const r = await fetch('/api/data.php?action=get_life_intelligence', {method:'POST'});
+        const d = await r.json();
+        if (d.intelligence) {
+            container.innerHTML = `
+                <div class="intel-banner">
+                    <div style="display:flex; gap: 24px; align-items: center;">
+                        <div style="font-size: 40px;">✨</div>
+                        <div>
+                            <div style="font-size: 10px; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px;">Long-term Evolution Analysis</div>
+                            <h3>${d.intelligence.life_phase}</h3>
+                            <p>${d.intelligence.evolution}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    } catch(e) {}
+}
+fetchLifeIntel();
+
 async function shareSnapshot() {
     const text = "I'm working on my wellness with Solen. Currently on a <?= $streak ?>-day streak! Check it out: <?= SITE_URL ?>";
     if (navigator.share) {
