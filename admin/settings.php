@@ -253,6 +253,21 @@ admin_head('Settings'); admin_sidebar('settings');
       <?php elseif ($tab === 'ai'): ?>
       <div style="display:flex;flex-direction:column;gap:16px;max-width:700px">
         <div class="card">
+          <div class="card-header"><div class="card-title">Primary AI Provider</div></div>
+          <div class="form-group">
+            <label>Select Default Provider</label>
+            <select class="form-control" name="ai_provider" style="max-width:360px">
+              <option value="claude" <?= $s('ai_provider')==='claude'?'selected':'' ?>>Anthropic Claude (Best)</option>
+              <option value="gemini" <?= $s('ai_provider')==='gemini'?'selected':'' ?>>Google Gemini (Fast)</option>
+              <option value="openrouter" <?= $s('ai_provider')==='openrouter'?'selected':'' ?>>OpenRouter (Llama 3)</option>
+              <option value="huggingface" <?= $s('ai_provider')==='huggingface'?'selected':'' ?>>HuggingFace (Cheapest)</option>
+              <option value="puter" <?= $s('ai_provider')==='puter'?'selected':'' ?>>Puter AI</option>
+            </select>
+          </div>
+          <p class="text-muted text-sm" style="margin-top:8px">This provider will be used for all standard coaching conversations.</p>
+        </div>
+
+        <div class="card">
           <div class="card-header"><div class="card-title">OpenAI (DALL-E & GPT)</div></div>
           <div class="form-group">
             <label>OpenAI API Key</label>
@@ -283,6 +298,18 @@ admin_head('Settings'); admin_sidebar('settings');
           <div class="form-group" style="margin-top:12px">
             <label>Core Coaching Model</label>
             <input class="form-control" name="claude_model" value="<?= $s('claude_model','claude-3-5-sonnet-20241022') ?>"/>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Puter AI</div></div>
+          <div class="form-group">
+            <label>Puter Auth Token</label>
+            <input class="form-control" type="password" name="puter_auth_token" value="<?= $s('puter_auth_token') ?>"/>
+          </div>
+          <div class="form-group" style="margin-top:12px">
+            <label>Model</label>
+            <input class="form-control" name="puter_model" value="<?= $s('puter_model','gpt-4o-mini') ?>"/>
           </div>
         </div>
       </div>

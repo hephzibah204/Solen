@@ -15,6 +15,7 @@ require_once dirname(__DIR__) . '/providers/gemini.php';
 require_once dirname(__DIR__) . '/providers/openrouter.php';
 require_once dirname(__DIR__) . '/providers/huggingface.php';
 require_once dirname(__DIR__) . '/providers/claude_provider.php';
+require_once dirname(__DIR__) . '/providers/puter.php';
 
 /**
  * Core router — streams directly to the client via SSE.
@@ -88,8 +89,8 @@ function _select_provider(string $userPlan): string {
     if ($userPlan === 'free') {
         $cheap = get_setting('ai_provider_free', ''); // admin can override
         if ($cheap) return $cheap;
-        // Default cost-saving order for free: HuggingFace → OpenRouter → Gemini → Claude
-        foreach (['huggingface', 'openrouter', 'gemini', 'claude'] as $p) {
+        // Default cost-saving order for free: Puter → HuggingFace → OpenRouter → Gemini → Claude
+        foreach (['puter', 'huggingface', 'openrouter', 'gemini', 'claude'] as $p) {
             if (_provider_has_key($p)) return $p;
         }
     }
@@ -98,7 +99,7 @@ function _select_provider(string $userPlan): string {
     if (_provider_has_key($configured)) return $configured;
 
     // Fallback: first available key
-    foreach (['claude', 'gemini', 'openrouter', 'huggingface'] as $p) {
+    foreach (['claude', 'gemini', 'openrouter', 'huggingface', 'puter'] as $p) {
         if (_provider_has_key($p)) return $p;
     }
 
@@ -111,6 +112,7 @@ function _provider_has_key(string $provider): bool {
         'gemini'      => !empty(get_setting('gemini_api_key') ?: GEMINI_API_KEY),
         'openrouter'  => !empty(get_setting('openrouter_api_key') ?: OPENROUTER_API_KEY),
         'huggingface' => !empty(get_setting('huggingface_api_key') ?: HUGGINGFACE_API_KEY),
+        'puter'       => !empty(get_setting('puter_auth_token') ?: (defined('PUTER_AUTH_TOKEN') ? PUTER_AUTH_TOKEN : '')),
         default       => false,
     };
 }
@@ -121,7 +123,7 @@ function _provider_has_key(string $provider): bool {
 function _build_attempt_order(string $primary, bool $fallback): array {
     if (!$fallback) return [$primary];
 
-    $all = ['claude', 'gemini', 'openrouter', 'huggingface'];
+    $all = ['claude', 'gemini', 'openrouter', 'huggingface', 'puter'];
     // Primary first, then the rest in reliability order
     return array_merge([$primary], array_values(array_diff($all, [$primary])));
 }
@@ -134,6 +136,7 @@ function _stream_provider(string $provider, array $messages, string $system, int
             'gemini'      => provider_stream_gemini($messages, $system, $maxTokens),
             'openrouter'  => provider_stream_openrouter($messages, $system, $maxTokens, $opts['model'] ?? null),
             'huggingface' => provider_stream_huggingface($messages, $system, $maxTokens),
+            'puter'       => provider_stream_puter($messages, $system, $maxTokens, $opts['model'] ?? null),
             default       => provider_stream_claude($messages, $system, $maxTokens),
         };
         return true;
@@ -149,6 +152,7 @@ function _sync_provider(string $provider, array $messages, string $system, int $
             'gemini'      => provider_sync_gemini($messages, $system, $maxTokens),
             'openrouter'  => provider_sync_openrouter($messages, $system, $maxTokens, $opts['model'] ?? null),
             'huggingface' => provider_sync_huggingface($messages, $system, $maxTokens),
+            'puter'       => provider_sync_puter($messages, $system, $maxTokens, $opts['model'] ?? null),
             default       => provider_sync_claude($messages, $system, $maxTokens),
         };
     } catch (Throwable $e) {
