@@ -9,7 +9,7 @@ require_once __DIR__ . '/db.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start([
         'cookie_lifetime' => 0,           // expire on browser close; DB token governs 30-day persistence
-        'cookie_secure'   => true,         // HTTPS only
+        'cookie_secure'   => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on', // HTTPS only if available
         'cookie_httponly' => true,         // no JS access
         'cookie_samesite' => 'Lax',        // blocks CSRF on cross-site navigations
         'use_strict_mode' => true,         // reject unrecognised session IDs
