@@ -40,6 +40,11 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Ignore non-GET requests (like form submissions)
+  if (request.method !== 'GET') {
+    return;
+  }
+
   // Always network-first for API calls (never serve stale data)
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
