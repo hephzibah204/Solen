@@ -7,14 +7,6 @@ require_once __DIR__ . '/db.php';
 // ("log out all devices") while keeping the cookie-session UX unchanged.
 
 if (session_status() === PHP_SESSION_NONE) {
-    // Force sessions to save locally to bypass unwritable /tmp directories on shared hosts
-    $sessionPath = dirname(__DIR__) . '/database/sessions';
-    if (!is_dir($sessionPath)) {
-        @mkdir($sessionPath, 0755, true);
-    }
-    session_save_path($sessionPath);
-
-    // Let the server handle its own default cookie parameters
     session_start();
 }
 
