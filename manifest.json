@@ -1,0 +1,65 @@
+{
+  "name": "Solen — AI Wellness Coach",
+  "short_name": "Solen",
+  "description": "Your personal AI wellness coach that remembers your journey. Get daily check-ins, mood tracking, and personalized support.",
+  "start_url": "/app.php",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#07070f",
+  "theme_color": "#07070f",
+  "orientation": "portrait-primary",
+  "lang": "en-US",
+  "categories": ["health", "lifestyle", "medical"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Daily Check-in",
+      "short_name": "Check-in",
+      "description": "Open your daily wellness check-in",
+      "url": "/app.php#checkin",
+      "icons": [{ "src": "/assets/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Mood Log",
+      "short_name": "Mood",
+      "description": "Log how you're feeling right now",
+      "url": "/app.php#mood",
+      "icons": [{ "src": "/assets/icon-96.png", "sizes": "96x96" }]
+    }
+  ],
+  "icons": [
+    {
+      "src": "/assets/icon-72.png",
+      "type": "image/png",
+      "sizes": "72x72",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-96.png",
+      "type": "image/png",
+      "sizes": "96x96",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-128.png",
+      "type": "image/png",
+      "sizes": "128x128",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
