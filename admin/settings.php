@@ -420,157 +420,102 @@ admin_head('Settings'); admin_sidebar('settings');
           </div>
           <p class="text-muted text-sm" style="margin-top:8px">
             <em>Auto</em> adapts the typing animation speed to the detected emotional state —
-            slower for crisis/distress, normal for neutral/positive responses.
-          </p>
+            slower for crisis/distress, normal for neutral/positive responses.      <?php elseif ($tab === 'retention'): ?>
+      <div style="display:flex;flex-direction:column;gap:20px;max-width:700px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Behavioral Retention</div></div>
+          
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <!-- Rituals -->
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font-weight:500">Daily Rituals</div>
+                <div class="text-muted text-sm">Morning, evening, and weekly ritual check-ins with completion tracking.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" name="rituals_enabled" value="1" <?= $s('rituals_enabled')==='1'?'checked':'' ?>>
+              </label>
+            </div>
+
+            <!-- Dashboard -->
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font-weight:500">Growth Dashboard</div>
+                <div class="text-muted text-sm">Enable emotional timeline and mood trend charts at /timeline.php.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" name="growth_dashboard_enabled" value="1" <?= $s('growth_dashboard_enabled')==='1'?'checked':'' ?>>
+              </label>
+            </div>
+
+            <!-- Snapshots -->
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font-weight:500">Nightly Analytics Snapshots</div>
+                <div class="text-muted text-sm">Compute daily growth scores and mood trends for all active users.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" name="analytics_snapshots_enabled" value="1" <?= $s('analytics_snapshots_enabled')==='1'?'checked':'' ?>>
+              </label>
+            </div>
+
+            <!-- Reminders -->
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font-weight:500">Adaptive Reminder Engine</div>
+                <div class="text-muted text-sm">Send intelligent, emotionally-aware reminders based on user patterns.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" name="reminder_engine_enabled" value="1" <?= $s('reminder_engine_enabled')==='1'?'checked':'' ?>>
+              </label>
+            </div>
+          </div>
+          
+          <div style="margin-top:20px;padding:14px;background:rgba(184,149,106,0.06);border:1px solid rgba(184,149,106,0.15);border-radius:10px;font-size:13px;color:var(--muted)">
+            💡 Requires SMTP configured and cron running (Jobs 7, 8 & 9 in api/cron.php).
+          </div>
         </div>
       </div>
 
+      <?php elseif ($tab === 'seo'): ?>
+      <div style="display:flex;flex-direction:column;gap:16px;max-width:700px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">SEO & Metadata</div></div>
+          <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Default Meta Title</label>
+              <input class="form-control" name="meta_title_default" value="<?= $s('meta_title_default','Solen — Your Personal AI Wellness Coach') ?>"/>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Default Meta Description</label>
+              <textarea class="form-control" name="meta_desc_default" rows="3"><?= $s('meta_desc_default','A private, safe space to reflect, grow, and navigate life with an AI companion that remembers you.') ?></textarea>
+            </div>
+            <div class="form-group">
+              <label>OG Image URL</label>
+              <input class="form-control" name="og_image" value="<?= $s('og_image','/assets/og-image.png') ?>"/>
+            </div>
+            <div class="form-group">
+              <label>Twitter Handle</label>
+              <input class="form-control" name="twitter_handle" value="<?= $s('twitter_handle','@getsolen') ?>"/>
+            </div>
+          </div>
+        </div>
 
-      <?php elseif ($tab === 'retention'): ?>
-      <?php
-/**
- * Admin Settings — Phase 5/6 tab additions
- *
- * ADD these two tab entries to the existing $tabs array in admin/settings.php:
- *
- *   'retention' => 'Retention'
- *   (analytics_snapshots_enabled, adaptive_reminders_enabled sit here)
- *
- * This file is a DROP-IN PATCH — copy the two tab blocks below into
- * admin/settings.php, inserting them after the existing 'voice' block
- * and before the 'seo' block.
- *
- * ── PATCH INSTRUCTIONS ────────────────────────────────────────────────────
- *
- * 1. In admin/settings.php, find:
- *      $tabs = ['general'=>'General', ... 'voice'=>'Voice', 'seo'=>'SEO', ...];
- *    Change to:
- *      $tabs = ['general'=>'General', ... 'voice'=>'Voice', 'retention'=>'Retention', 'seo'=>'SEO', ...];
- *
- * 2. After the closing `<?php elseif ($tab === 'voice'): ?>` block's `<?php endif ?>`,
- *    paste the block below marked ── RETENTION TAB ──
- *
- * 3. No DB changes needed — retention_run_migrations() is called from
- *    includes/db.php after this patch is applied (see db_patch below).
- */
-
-// ── DB PATCH (add to includes/db.php, after voice_run_migrations call) ───────
-// retention_run_migrations($pdo);
-// (Requires: require_once __DIR__ . '/retention.php'; at top of db.php)
-
-// ────────────────────────────────────────────────────────────────────────────
-// PASTE THE FOLLOWING INTO admin/settings.php (after voice tab, before seo tab)
-// ────────────────────────────────────────────────────────────────────────────
-?>
-
-<?php /* ── RETENTION TAB ──────────────────────────────────────────────── */ ?>
-<?php if ($tab === 'retention'): ?>
-
-<h2 style="font-size:17px;font-weight:600;margin-bottom:20px">Behavioral Retention</h2>
-
-<!-- Ritual System -->
-<div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
-  <div style="font-weight:600;margin-bottom:16px;font-size:14px">🌅 Ritual System</div>
-
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-    <div>
-      <div style="font-weight:500;margin-bottom:3px">Enable Daily Rituals</div>
-      <div style="font-size:13px;color:var(--muted)">Morning, evening, and weekly ritual check-ins with completion tracking and streak rewards.</div>
-    </div>
-    <label style="cursor:pointer">
-      <input type="checkbox" name="rituals_enabled" value="1" <?= $s('rituals_enabled')==='1'?'checked':'' ?>>
-    </label>
-  </div>
-
-  <div style="display:flex;align-items:center;justify-content:space-between">
-    <div>
-      <div style="font-weight:500;margin-bottom:3px">Show Ritual Link in Navigation</div>
-      <div style="font-size:13px;color:var(--muted)">Add a "Rituals" link to the main nav so users can easily access their daily practices.</div>
-    </div>
-    <label style="cursor:pointer">
-      <input type="checkbox" name="rituals_nav_enabled" value="1" <?= $s('rituals_nav_enabled')==='1'?'checked':'' ?>>
-    </label>
-  </div>
-</div>
-
-<!-- Emotional Timeline -->
-<div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
-  <div style="font-weight:600;margin-bottom:16px;font-size:14px">📊 Emotional Timeline</div>
-
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-    <div>
-      <div style="font-weight:500;margin-bottom:3px">Enable Growth Dashboard</div>
-      <div style="font-size:13px;color:var(--muted)">Users can view their emotional timeline, mood trend charts, and milestone moments at /timeline.php.</div>
-    </div>
-    <label style="cursor:pointer">
-      <input type="checkbox" name="timeline_enabled" value="1" <?= $s('timeline_enabled')==='1'?'checked':'' ?>>
-    </label>
-  </div>
-</div>
-
-<!-- Growth Analytics -->
-<div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
-  <div style="font-weight:600;margin-bottom:16px;font-size:14px">🌟 Growth Analytics</div>
-
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-    <div>
-      <div style="font-weight:500;margin-bottom:3px">Nightly Analytics Snapshots</div>
-      <div style="font-size:13px;color:var(--muted)">Compute daily growth scores, mood trends, and consistency metrics for all active users. Run via cron (Job 7).</div>
-    </div>
-    <label style="cursor:pointer">
-      <input type="checkbox" name="analytics_snapshots_enabled" value="1" <?= $s('analytics_snapshots_enabled')==='1'?'checked':'' ?>>
-    </label>
-  </div>
-</div>
-
-<!-- Smart Reminders -->
-<div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
-  <div style="font-weight:600;margin-bottom:16px;font-size:14px">⏰ Smart Reminders</div>
-
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-    <div>
-      <div style="font-weight:500;margin-bottom:3px">Adaptive Reminder Engine</div>
-      <div style="font-size:13px;color:var(--muted)">Send intelligent, emotionally-aware reminders based on user patterns — ritual nudges, inactivity re-engagement, stress support emails.</div>
-    </div>
-    <label style="cursor:pointer">
-      <input type="checkbox" name="adaptive_reminders_enabled" value="1" <?= $s('adaptive_reminders_enabled')==='1'?'checked':'' ?>>
-    </label>
-  </div>
-
-  <div style="background:rgba(184,149,106,0.06);border:1px solid rgba(184,149,106,0.15);border-radius:8px;padding:14px;font-size:13px;color:var(--muted);line-height:1.6">
-    <strong style="color:var(--text)">Reminder types:</strong>
-    <ul style="margin-top:6px;padding-left:16px">
-      <li><strong>Morning ritual</strong> — sent at 9 AM if morning check-in not done</li>
-      <li><strong>Evening ritual</strong> — sent at 8 PM if evening reflection not done</li>
-      <li><strong>Inactivity</strong> — gentle re-engagement after 2+ days away</li>
-      <li><strong>Stress support</strong> — empathetic nudge when burnout/anxiety patterns detected</li>
-    </ul>
-    <div style="margin-top:8px">Requires SMTP configured (Email tab) and cron running (Jobs 8 & 9).</div>
-  </div>
-</div>
-
-<!-- Cron notes -->
-<div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:20px">
-  <div style="font-weight:600;margin-bottom:12px;font-size:14px">🕐 Cron Jobs (Phase 5)</div>
-  <div style="font-size:13px;color:var(--muted);line-height:1.8">
-    Three new jobs are added to <code style="color:var(--accent)">api/cron.php</code> by this phase:<br>
-    <strong style="color:var(--text)">Job 7</strong> — Growth analytics snapshots (all active users)<br>
-    <strong style="color:var(--text)">Job 8</strong> — Process due adaptive reminders (send emails)<br>
-    <strong style="color:var(--text)">Job 9</strong> — Schedule tomorrow's reminders (based on user patterns)<br><br>
-    Your existing cron entry (run once daily) will pick these up automatically — no changes needed.
-  </div>
-</div>
-
-<?php endif ?>
-
-<?php
-// ─────────────────────────────────────────────────────────────────────────────
-// Also add 'retention' to the settings save handler in admin/settings.php.
-// The save block already loops over all POST data via:
-//   foreach ($_POST as $k => $v) set_setting($k, $v);
-// So checkbox fields work automatically — nothing extra needed.
-// ─────────────────────────────────────────────────────────────────────────────
-?>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Indexing</div></div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+              <input type="checkbox" name="sitemap_enabled" value="1" <?= $s('sitemap_enabled')==='1'?'checked':'' ?>>
+              Generate Dynamic Sitemap (/sitemap.xml)
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+              <input type="checkbox" name="robots_index" value="1" <?= $s('robots_index')==='1'?'checked':'' ?>>
+              Allow Search Engines to Index (robots.txt)
+            </label>
+          </div>
+        </div>
+      </div>
+      </div>
 
       <?php elseif ($tab === 'danger'): ?>
       <div style="max-width:600px">
