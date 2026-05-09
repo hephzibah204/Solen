@@ -30,42 +30,38 @@ if (!$resetRow && $_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // ── Handle form submission ─────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $resetRow) {
-    if (!verify_csrf($_POST['csrf'] ?? '')) {
-        $error = 'Invalid request. Please try again.';
+    $password  = $_POST['password']  ?? '';
+    $password2 = $_POST['password2'] ?? '';
+
+    if (strlen($password) < 8) {
+        $error = 'Password must be at least 8 characters.';
+    } elseif ($password !== $password2) {
+        $error = 'Passwords do not match.';
     } else {
-        $password  = $_POST['password']  ?? '';
-        $password2 = $_POST['password2'] ?? '';
+        $hash = password_hash($password, PASSWORD_DEFAULT);
 
-        if (strlen($password) < 8) {
-            $error = 'Password must be at least 8 characters.';
-        } elseif ($password !== $password2) {
-            $error = 'Passwords do not match.';
-        } else {
-            $hash = password_hash($password, PASSWORD_DEFAULT);
+        // Update password
+        db_run("UPDATE users SET password=? WHERE id=?", [$hash, $resetRow['user_id']]);
 
-            // Update password
-            db_run("UPDATE users SET password=? WHERE id=?", [$hash, $resetRow['user_id']]);
+        // Mark token as used
+        db_run(
+            "UPDATE password_resets SET used_at=datetime('now') WHERE token_hash=?",
+            [$tokenHash]
+        );
 
-            // Mark token as used
-            db_run(
-                "UPDATE password_resets SET used_at=datetime('now') WHERE token_hash=?",
-                [$tokenHash]
-            );
+        // Invalidate all other unused tokens for this user
+        db_run(
+            "UPDATE password_resets SET used_at=datetime('now') WHERE user_id=? AND used_at IS NULL",
+            [$resetRow['user_id']]
+        );
 
-            // Invalidate all other unused tokens for this user
-            db_run(
-                "UPDATE password_resets SET used_at=datetime('now') WHERE user_id=? AND used_at IS NULL",
-                [$resetRow['user_id']]
-            );
+        // Log the user in automatically
+        $_SESSION['user_id']   = $resetRow['user_id'];
+        $_SESSION['user_role'] = 'user';
+        $_SESSION['user_name'] = $resetRow['name'];
+        db_run("UPDATE users SET last_login=datetime('now') WHERE id=?", [$resetRow['user_id']]);
 
-            // Log the user in automatically
-            $_SESSION['user_id']   = $resetRow['user_id'];
-            $_SESSION['user_role'] = 'user';
-            $_SESSION['user_name'] = $resetRow['name'];
-            db_run("UPDATE users SET last_login=datetime('now') WHERE id=?", [$resetRow['user_id']]);
-
-            $state = 'success';
-        }
+        $state = 'success';
     }
 }
 

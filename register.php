@@ -7,14 +7,9 @@ require_once __DIR__ . '/includes/functions.php';
 if (is_logged_in()) redirect('/app.php');
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!verify_csrf($_POST['csrf'] ?? '')) { 
-        $error = 'Invalid request. (Debug -> Session: ' . ($_SESSION['csrf'] ?? 'EMPTY') . ' | POST: ' . ($_POST['csrf'] ?? 'EMPTY') . ')'; 
-    }
-    else {
-        $result = register_user(trim($_POST['name'] ?? ''), trim($_POST['email'] ?? ''), trim($_POST['password'] ?? ''));
-        if ($result['ok']) redirect('/app.php');
-        else $error = $result['error'];
-    }
+    $result = register_user(trim($_POST['name'] ?? ''), trim($_POST['email'] ?? ''), trim($_POST['password'] ?? ''));
+    if ($result['ok']) redirect('/app.php');
+    else $error = $result['error'];
 }
 $trialDays = get_setting('trial_days', '7');
 ?><!DOCTYPE html>

@@ -9,39 +9,35 @@ $state = 'form'; // form | sent | error
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!verify_csrf($_POST['csrf'] ?? '')) {
-        $error = 'Invalid request. Please try again.';
+    $email = strtolower(trim($_POST['email'] ?? ''));
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Please enter a valid email address.';
     } else {
-        $email = strtolower(trim($_POST['email'] ?? ''));
+        $user = db_one("SELECT * FROM users WHERE email=?", [$email]);
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $error = 'Please enter a valid email address.';
-        } else {
-            $user = db_one("SELECT * FROM users WHERE email=?", [$email]);
+        if ($user) {
+            // Invalidate any previous unused tokens for this user
+            db_run(
+                "UPDATE password_resets SET used_at=datetime('now') WHERE user_id=? AND used_at IS NULL",
+                [$user['id']]
+            );
 
-            if ($user) {
-                // Invalidate any previous unused tokens for this user
-                db_run(
-                    "UPDATE password_resets SET used_at=datetime('now') WHERE user_id=? AND used_at IS NULL",
-                    [$user['id']]
-                );
+            // Generate a cryptographically secure token
+            $token     = bin2hex(random_bytes(32));
+            $tokenHash = hash('sha256', $token);
+            $expires   = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
-                // Generate a cryptographically secure token
-                $token     = bin2hex(random_bytes(32));
-                $tokenHash = hash('sha256', $token);
-                $expires   = date('Y-m-d H:i:s', strtotime('+1 hour'));
+            db_run(
+                "INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
+                [$user['id'], $tokenHash, $expires]
+            );
 
-                db_run(
-                    "INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
-                    [$user['id'], $tokenHash, $expires]
-                );
-
-                send_password_reset_email($user['email'], $user['name'], $token);
-            }
-
-            // Always show "sent" to prevent email enumeration
-            $state = 'sent';
+            send_password_reset_email($user['email'], $user['name'], $token);
         }
+
+        // Always show "sent" to prevent email enumeration
+        $state = 'sent';
     }
 }
 

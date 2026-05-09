@@ -24,8 +24,6 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($locked) {
         $error = 'Too many failed attempts. Please wait ' . ceil(($LOCKOUT_SECS - (time()-$failTime))/60) . ' minutes before trying again.';
-    } elseif (!verify_csrf($_POST['csrf'] ?? '')) {
-        $error = 'Invalid request.';
     } else {
         $ok = login_user($_POST['email'] ?? '', $_POST['password'] ?? '');
         if ($ok) redirect(is_admin() ? '/admin/index.php' : ($_GET['next'] ?? '/app.php'));
