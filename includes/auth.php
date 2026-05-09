@@ -7,12 +7,15 @@ require_once __DIR__ . '/db.php';
 // ("log out all devices") while keeping the cookie-session UX unchanged.
 
 if (session_status() === PHP_SESSION_NONE) {
+    // Determine HTTPS for secure cookie flag (supports reverse proxies)
+    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+             || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
     session_start([
-        'cookie_lifetime' => 0,           // expire on browser close; DB token governs 30-day persistence
-        'cookie_secure'   => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on', // HTTPS only if available
-        'cookie_httponly' => true,         // no JS access
-        'cookie_samesite' => 'Lax',        // blocks CSRF on cross-site navigations
-        'use_strict_mode' => true,         // reject unrecognised session IDs
+        'cookie_lifetime' => 0,
+        'cookie_secure'   => $isSecure,
+        'cookie_httponly' => true,
+        'cookie_samesite' => 'Lax',
     ]);
 }
 
