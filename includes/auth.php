@@ -7,17 +7,22 @@ require_once __DIR__ . '/db.php';
 // ("log out all devices") while keeping the cookie-session UX unchanged.
 
 if (session_status() === PHP_SESSION_NONE) {
-    // Determine HTTPS for secure cookie flag (supports reverse proxies)
+    // Determine HTTPS for secure cookie flag
     $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
              || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 
-    session_start([
-        'cookie_lifetime' => 0,
-        'cookie_secure'   => $isSecure,
-        'cookie_httponly' => true,
-        'cookie_samesite' => 'Lax',
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'secure'   => $isSecure,
+        'httponly' => true,
+        'samesite' => 'Lax'
     ]);
+    session_start();
 }
+
+// Prevent aggressive caching on the live server which breaks CSRF tokens
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Pragma: no-cache");
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
