@@ -32,6 +32,8 @@ define('CLAUDE_API_KEY',      getenv('CLAUDE_API_KEY')      ?: '');
 define('GEMINI_API_KEY',      getenv('GEMINI_API_KEY')      ?: '');
 define('HUGGINGFACE_API_KEY', getenv('HUGGINGFACE_API_KEY') ?: '');
 define('OPENROUTER_API_KEY',  getenv('OPENROUTER_API_KEY')  ?: '');
+define('GROQ_API_KEY',        getenv('GROQ_API_KEY')        ?: '');
+define('HYPEREAL_API_KEY',    getenv('HYPEREAL_API_KEY')    ?: '');
 define('PUTER_AUTH_TOKEN',    getenv('PUTER_AUTH_TOKEN')    ?: '');
 
 // ── PAYMENT GATEWAY KEYS ──────────────────────────────────────────────────

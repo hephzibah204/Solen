@@ -1,16 +1,17 @@
 <?php
 /**
- * Solen HuggingFace Provider
+ * Solen Groq AI Provider
+ * API: OpenAI Compatible
+ * Base URL: https://api.groq.com/openai/v1
  */
 require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/includes/db.php';
 
-function provider_stream_huggingface(array $messages, string $system, int $maxTokens): void {
-    $key   = get_setting('huggingface_api_key') ?: (defined('HUGGINGFACE_API_KEY') ? HUGGINGFACE_API_KEY : '');
-    if (!$key) throw new RuntimeException('HuggingFace API key not configured');
+function provider_stream_groq(array $messages, string $system, int $maxTokens, ?string $model = null): void {
+    $key = get_setting('groq_api_key') ?: (defined('GROQ_API_KEY') ? GROQ_API_KEY : '');
+    if (!$key) throw new RuntimeException('Groq API key not configured');
 
-    $model   = get_setting('huggingface_model', 'mistralai/Mistral-7B-Instruct-v0.3');
-    $url     = "https://api-inference.huggingface.co/v1/chat/completions";
+    $model   = $model ?: get_setting('groq_model', 'llama-3.3-70b-versatile');
     $payload = [
         'model'      => $model,
         'messages'   => array_merge(
@@ -21,7 +22,7 @@ function provider_stream_huggingface(array $messages, string $system, int $maxTo
         'stream'     => true,
     ];
 
-    $ch = curl_init($url);
+    $ch = curl_init('https://api.groq.com/openai/v1/chat/completions');
     curl_setopt_array($ch, [
         CURLOPT_POST          => true,
         CURLOPT_POSTFIELDS    => json_encode($payload),
@@ -37,12 +38,11 @@ function provider_stream_huggingface(array $messages, string $system, int $maxTo
     curl_close($ch);
 }
 
-function provider_sync_huggingface(array $messages, string $system, int $maxTokens): ?string {
-    $key   = get_setting('huggingface_api_key') ?: (defined('HUGGINGFACE_API_KEY') ? HUGGINGFACE_API_KEY : '');
+function provider_sync_groq(array $messages, string $system, int $maxTokens, ?string $model = null): ?string {
+    $key = get_setting('groq_api_key') ?: (defined('GROQ_API_KEY') ? GROQ_API_KEY : '');
     if (!$key) return null;
 
-    $model   = get_setting('huggingface_model', 'mistralai/Mistral-7B-Instruct-v0.3');
-    $url     = "https://api-inference.huggingface.co/models/{$model}/v1/chat/completions";
+    $model   = $model ?: get_setting('groq_model', 'llama-3.3-70b-versatile');
     $payload = [
         'model'    => $model,
         'messages' => array_merge(
@@ -53,7 +53,7 @@ function provider_sync_huggingface(array $messages, string $system, int $maxToke
         'stream'     => false,
     ];
 
-    $ch = curl_init($url);
+    $ch = curl_init('https://api.groq.com/openai/v1/chat/completions');
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_POSTFIELDS     => json_encode($payload),

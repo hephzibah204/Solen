@@ -3,7 +3,7 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../config.php';
 
 $key = getenv('GEMINI_API_KEY');
-$url = "https://generativelanguage.googleapis.com/v1beta/models?key={$key}";
+$url = "https://generativelanguage.googleapis.com/v1/models?key={$key}";
 
 echo "Listing Gemini Models with NEW KEY...\n";
 $ch = curl_init($url);

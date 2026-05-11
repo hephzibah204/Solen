@@ -9,7 +9,7 @@ function provider_stream_gemini(array $messages, string $system, int $maxTokens)
     $key   = get_setting('gemini_api_key') ?: (defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '');
     if (!$key) throw new RuntimeException('Gemini API key not configured');
 
-    $model = get_setting('gemini_model', 'gemini-1.5-flash');
+    $model = get_setting('gemini_model', 'gemini-3-flash-preview');
     $url   = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:streamGenerateContent?key={$key}&alt=sse";
 
     $contents = [];
@@ -48,7 +48,7 @@ function provider_sync_gemini(array $messages, string $system, int $maxTokens): 
     $key   = get_setting('gemini_api_key') ?: (defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '');
     if (!$key) return null;
 
-    $model = get_setting('gemini_model', 'gemini-1.5-flash');
+    $model = get_setting('gemini_model', 'gemini-3-flash-preview');
     $url   = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$key}";
 
     $contents = [];
