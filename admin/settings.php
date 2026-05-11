@@ -599,7 +599,13 @@ admin_head('Settings'); admin_sidebar('settings');
 $do = $_GET['do'] ?? '';
 if ($do && verify_csrf($_GET['csrf'] ?? '')) {
     if ($do === 'purge_moods')  { db_run("DELETE FROM mood_logs"); flash('success','All mood logs deleted.'); }
-    if ($do === 'purge_memory') { db_run("DELETE FROM coach_memory"); flash('success','All coach memory deleted.'); }
+    if ($do === 'purge_memory') {
+        db_run("DELETE FROM coach_memory");
+        db_run("DELETE FROM memory_episodes");
+        db_run("DELETE FROM memory_emotional_patterns");
+        db_run("DELETE FROM memory_access_log");
+        flash('success','All coach memory deleted (Phase 1 + Phase 3).');
+    }
     if ($do === 'export') {
         $data = [
             'exported_at' => date('c'),

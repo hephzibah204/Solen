@@ -463,7 +463,7 @@ function SolenApp() {
         </div>}
       </div>
 
-      {activeTab==="chat" && <div style={{padding:12,paddingBottom:max(12, env(safe-area-inset-bottom)),borderTop:"1px solid rgba(255,255,255,0.06)",display:"flex",gap:10,background:theme.bg}}>
+      {activeTab==="chat" && <div style={{padding:12,paddingBottom:"max(12px, env(safe-area-inset-bottom))",borderTop:"1px solid rgba(255,255,255,0.06)",display:"flex",gap:10,background:theme.bg}}>
         <textarea rows={1} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="Type your heart out..." style={{flex:1,background:"rgba(255,255,255,0.05)",border:"none",padding:12,color:"#fff",resize:"none",borderRadius:16,fontSize:15}}/>
         <button onClick={()=>send()} style={{width:44,height:44,borderRadius:"50%",border:"none",background:theme.accent,color:theme.soft,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
       </div>}

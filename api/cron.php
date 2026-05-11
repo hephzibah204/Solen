@@ -105,7 +105,7 @@ $results['memories_reranked'] = $reranked;
 // Compute and store nightly growth snapshot for every user active in last 30 days.
 if (get_setting('analytics_snapshots_enabled', '1') === '1') {
     $activeUsers = db_query(
-        "SELECT DISTINCT user_id FROM mood_logs WHERE logged_at >= datetime('now', '-30 days')"
+        "SELECT DISTINCT user_id FROM mood_logs WHERE logged_date >= date('now', '-30 days')"
     );
     $snapshots = 0;
     foreach ($activeUsers as $row) {
@@ -132,7 +132,7 @@ if (get_setting('adaptive_reminders_enabled', '1') === '1') {
 // Pre-schedule reminders for all users who were active in the last 7 days.
 if (get_setting('adaptive_reminders_enabled', '1') === '1') {
     $recentUsers = db_query(
-        "SELECT DISTINCT user_id FROM mood_logs WHERE logged_at >= datetime('now', '-7 days')"
+        "SELECT DISTINCT user_id FROM mood_logs WHERE logged_date >= date('now', '-7 days')"
     );
     $scheduled = 0;
     foreach ($recentUsers as $row) {

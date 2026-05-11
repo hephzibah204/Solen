@@ -154,6 +154,12 @@ footer a{color:var(--accent)}
 
 <section class="hero">
   <div class="wrap">
+    <?php if (isset($_GET['expired'])): ?>
+      <div style="background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.2);padding:14px 20px;border-radius:12px;color:#f87171;font-size:14px;margin-bottom:32px;display:inline-block;text-align:left;">
+        <strong style="display:block;margin-bottom:4px">Trial Expired</strong>
+        Your 7-day free trial has ended. Upgrade to a plan below to continue your wellness journey.
+      </div>
+    <?php endif ?>
     <span class="hero-label">Simple, honest pricing</span>
     <h1><?= h($headline) ?></h1>
     <p><?= h($subtext) ?></p>

@@ -18,7 +18,7 @@ header("Pragma: no-cache");
 
 /** Validate that the current session or cookie has a live row in user_sessions. */
 function _session_is_valid(): bool {
-    $token = $_COOKIE['solen_auth'] ?? $_SESSION['db_token'] ?? '';
+    $token = $_COOKIE['wordpress_logged_in_solen'] ?? $_SESSION['db_token'] ?? '';
     if (!$token) return false;
 
     $row = db_one(
@@ -75,10 +75,9 @@ function login_user(string $email, string $password): bool {
         [$user['id'], $user['id']]
     );
 
-    // Set dedicated HTTP-only cookie to bypass broken PHP Sessions
-    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-             || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
-    setcookie('solen_auth', $token, time() + (30 * 86400), '/', '', $isSecure, true);
+    // Set magic cookie name universally ignored by aggressive edge caches (WP Engine, Cloudflare APO)
+    // Removed strict $isSecure requirement to prevent proxy header mismatches from dropping the cookie
+    setcookie('wordpress_logged_in_solen', $token, time() + (30 * 86400), '/', '', false, true);
 
     $_SESSION['user_id']   = $user['id'];
     $_SESSION['user_role'] = $user['role'];
@@ -90,11 +89,11 @@ function login_user(string $email, string $password): bool {
 }
 
 function logout_user(): void {
-    $token = $_COOKIE['solen_auth'] ?? $_SESSION['db_token'] ?? '';
+    $token = $_COOKIE['wordpress_logged_in_solen'] ?? $_SESSION['db_token'] ?? '';
     if ($token) {
         db_run("DELETE FROM user_sessions WHERE token=?", [$token]);
     }
-    setcookie('solen_auth', '', time() - 3600, '/');
+    setcookie('wordpress_logged_in_solen', '', time() - 3600, '/');
     session_destroy();
     header('Location: /login.php');
     exit;
@@ -104,15 +103,18 @@ function logout_user(): void {
 function logout_all_devices(int $userId): void {
     db_run("DELETE FROM user_sessions WHERE user_id=?", [$userId]);
     if (($_SESSION['user_id'] ?? 0) == $userId) {
-        setcookie('solen_auth', '', time() - 3600, '/');
+        setcookie('wordpress_logged_in_solen', '', time() - 3600, '/');
         session_destroy();
     }
 }
 
 function is_logged_in(): bool {
     if (!_session_is_valid()) {
-        setcookie('solen_auth', '', time() - 3600, '/');
-        session_destroy();
+        // Clear the stale auth cookie but do NOT call session_destroy() here.
+        // Destroying the session kills CSRF tokens, login fail counters, and
+        // flash messages that the page still needs — causing login loops.
+        setcookie('wordpress_logged_in_solen', '', time() - 3600, '/');
+        unset($_SESSION['user_id'], $_SESSION['user_role'], $_SESSION['user_name'], $_SESSION['db_token']);
         return false;
     }
     return true;
@@ -175,10 +177,8 @@ function register_user(string $name, string $email, string $password): array {
         [$userId, $token]
     );
     
-    // Set dedicated HTTP-only cookie
-    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-             || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
-    setcookie('solen_auth', $token, time() + (30 * 86400), '/', '', $isSecure, true);
+    // Set magic cookie name
+    setcookie('wordpress_logged_in_solen', $token, time() + (30 * 86400), '/', '', false, true);
 
     $_SESSION['user_id']   = $userId;
     $_SESSION['user_role'] = 'user';

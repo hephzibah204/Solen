@@ -108,6 +108,20 @@ foreach (array_reverse($messages) as $msg) {
     }
 }
 
+// ── LOAD COACH PROFILE (Phase 10) ────────────────────────────────────────
+// Must be fetched before building the system prompt.
+$profile = db_one("SELECT * FROM coach_profiles WHERE user_id=?", [$_rl_uid]) ?? [];
+
+// ── PREDICTIVE INTELLIGENCE (Phase 10) ───────────────────────────────────
+// Run a lightweight analysis; use the summary as a coach insight hint.
+$predInsight = '';
+if ($_rl_plan !== 'free' && function_exists('predictive_analyze_user')) {
+    $predAnalysis = predictive_analyze_user($_rl_uid);
+    if (!empty($predAnalysis['insights'])) {
+        $predInsight = $predAnalysis['summary'] ?? '';
+    }
+}
+
 // ── SSE HEADERS ───────────────────────────────────────────────────────────
 header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
@@ -116,11 +130,16 @@ header('X-Accel-Buffering: no');
 // ── ROUTE TO AI PROVIDER ──────────────────────────────────────────────────
 $provider = strtolower($body['provider'] ?? get_setting('ai_provider', 'claude'));
 
+// Audit crisis events (Phase 2 security)
+if ($emotionalState === 'crisis' && get_setting('crisis_log_enabled', '1') === '1') {
+    audit_log($_rl_uid, 'crisis_detected', implode(',', $emotionResult['indicators'] ?? []));
+}
+
 // Phase 10 — Rebuild system prompt on server to include Relationship & Predictive insights
 $systemPrompt = build_system_prompt($profile, [], $emotionalState, [
-    'user_id' => $_rl_uid,
-    'current_text' => $currentUserText,
-    'predictive_insight' => $predInsight
+    'user_id'            => $_rl_uid,
+    'current_text'       => $currentUserText,
+    'predictive_insight' => $predInsight,
 ]);
 
 route_ai_request($messages, $systemPrompt, $maxTokens, [

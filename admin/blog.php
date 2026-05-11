@@ -59,15 +59,17 @@ if ($action === 'ai_generate') {
     $prompt = "Write a comprehensive blog post about: {$topic}";
 
     $messages = [['role' => 'user', 'content' => $prompt]];
-    
-    // We use a non-streaming call here for convenience
-    $res = route_ai_request($messages, $system, 3000, [
+
+    // Use sync (non-streaming) call — the streaming variant writes SSE to output and returns void
+    $res = route_ai_request_sync($messages, $system, 3000, [
         'provider' => get_setting('ai_provider', 'claude'),
-        'streaming' => false
     ]);
 
     header('Content-Type: application/json');
-    echo $res; // Expecting the model to return JSON
+    if (!$res) { echo json_encode(['error' => 'AI generation failed — no response from provider']); exit; }
+    // Strip markdown code fences the model may wrap around JSON
+    $clean = trim(preg_replace('/^```json|```$/m', '', trim($res)));
+    echo $clean;
     exit;
 }
 
