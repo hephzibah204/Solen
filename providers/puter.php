@@ -17,6 +17,7 @@ function provider_stream_puter(array $messages, string $system, int $maxTokens, 
             $system ? [['role' => 'system', 'content' => $system]] : [],
             $messages
         ),
+        'max_tokens' => $maxTokens,
         'stream'     => true,
     ];
 
@@ -54,10 +55,11 @@ function provider_sync_puter(array $messages, string $system, int $maxTokens, ?s
             $system ? [['role' => 'system', 'content' => $system]] : [],
             $messages
         ),
-        'stream'   => false,
+        'max_tokens' => $maxTokens,
+        'stream'     => false,
     ];
 
-    $ch = curl_init('https://api.puter.com/v1/ai/chat');
+    $ch = curl_init('https://api.puter.com/puterai/openai/v1/chat/completions');
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_POSTFIELDS     => json_encode($payload),
