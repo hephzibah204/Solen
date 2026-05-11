@@ -265,7 +265,210 @@ async function streamClaude(payload, onChunk) {
       } catch {}
     }
   }
-  return full;
+}
+
+// --- GEMINI LIVE AUDIO MANAGERS ---
+class AudioPlaybackManager {
+  constructor() {
+    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+      sampleRate: 16000
+    });
+    this.nextPlayTime = 0;
+  }
+  playPCM(base64Data) {
+    if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+    const binaryString = atob(base64Data);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+    const int16Array = new Int16Array(bytes.buffer);
+    const float32Array = new Float32Array(int16Array.length);
+    for (let i = 0; i < int16Array.length; i++) float32Array[i] = int16Array[i] / 32768.0;
+    const buffer = this.audioCtx.createBuffer(1, float32Array.length, 16000);
+    buffer.getChannelData(0).set(float32Array);
+    const source = this.audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.audioCtx.destination);
+    if (this.nextPlayTime < this.audioCtx.currentTime) this.nextPlayTime = this.audioCtx.currentTime;
+    source.start(this.nextPlayTime);
+    this.nextPlayTime += buffer.duration;
+  }
+  stop() {
+    if (this.audioCtx) this.audioCtx.close();
+  }
+}
+class MicManager {
+  constructor(ws) {
+    this.ws = ws;
+    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+      sampleRate: 16000
+    });
+    this.stream = null;
+    this.source = null;
+    this.scriptNode = null;
+    this.isActive = false;
+  }
+  async start() {
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          sampleRate: 16000
+        }
+      });
+      this.source = this.audioCtx.createMediaStreamSource(this.stream);
+      this.scriptNode = this.audioCtx.createScriptProcessor(4096, 1, 1);
+      this.scriptNode.onaudioprocess = e => {
+        if (!this.isActive || this.ws.readyState !== WebSocket.OPEN) return;
+        const inputData = e.inputBuffer.getChannelData(0);
+        const pcm16 = new Int16Array(inputData.length);
+        for (let i = 0; i < inputData.length; i++) {
+          let s = Math.max(-1, Math.min(1, inputData[i]));
+          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+        const buffer = new Uint8Array(pcm16.buffer);
+        let binary = '';
+        for (let i = 0; i < buffer.byteLength; i += 1024) binary += String.fromCharCode.apply(null, buffer.subarray(i, i + 1024));
+        if (buffer.byteLength % 1024 > 0) binary += String.fromCharCode.apply(null, buffer.subarray(buffer.byteLength - buffer.byteLength % 1024));
+        this.ws.send(JSON.stringify({
+          realtimeInput: {
+            mediaChunks: [{
+              mimeType: "audio/pcm;rate=16000",
+              data: btoa(binary)
+            }]
+          }
+        }));
+      };
+      this.source.connect(this.scriptNode);
+      const gainNode = this.audioCtx.createGain();
+      gainNode.gain.value = 0;
+      this.scriptNode.connect(gainNode);
+      gainNode.connect(this.audioCtx.destination);
+      this.isActive = true;
+    } catch (e) {
+      console.error("Mic error:", e);
+    }
+  }
+  stop() {
+    this.isActive = false;
+    if (this.stream) this.stream.getTracks().forEach(t => t.stop());
+    if (this.audioCtx) this.audioCtx.close();
+  }
+}
+function useGeminiLive(profile, systemPrompt, setMessages, setEmotState) {
+  const [isCalling, setIsCalling] = useState(false);
+  const [callStatus, setCallStatus] = useState("disconnected");
+  const wsRef = useRef(null);
+  const audioRef = useRef(null);
+  const micRef = useRef(null);
+  const startCall = async () => {
+    setIsCalling(true);
+    setCallStatus("connecting");
+    try {
+      const res = await fetch('/api/gemini_token.php');
+      const data = await res.json();
+      if (!data.key) throw new Error("No API key");
+      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${data.key}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      ws.onopen = () => {
+        setCallStatus("connected");
+        ws.send(JSON.stringify({
+          setup: {
+            model: "models/gemini-2.0-flash-exp",
+            systemInstruction: {
+              parts: [{
+                text: systemPrompt
+              }]
+            }
+          }
+        }));
+        audioRef.current = new AudioPlaybackManager();
+        micRef.current = new MicManager(ws);
+        micRef.current.start();
+
+        // Add optimistic system message
+        setMessages(p => [...p, {
+          role: "assistant",
+          content: "Call connected. I'm listening..."
+        }]);
+      };
+      let currentAiMsg = "";
+      ws.onmessage = e => {
+        const msg = JSON.parse(e.data);
+        if (msg.serverContent) {
+          const content = msg.serverContent;
+          if (content.modelTurn?.parts) {
+            content.modelTurn.parts.forEach(p => {
+              if (p.inlineData?.mimeType.startsWith('audio/pcm')) {
+                audioRef.current?.playPCM(p.inlineData.data);
+              }
+              if (p.text) currentAiMsg += p.text;
+            });
+          }
+          if (content.turnComplete) {
+            if (currentAiMsg) {
+              setMessages(p => {
+                const arr = [...p];
+                if (arr[arr.length - 1]?.content === "Call connected. I'm listening...") arr.pop();
+                const next = [...arr, {
+                  role: "assistant",
+                  content: currentAiMsg
+                }];
+                apiData("save_session", {
+                  messages: next
+                });
+                return next;
+              });
+              currentAiMsg = "";
+            }
+          }
+          if (content.inputTranscription && content.inputTranscription.text) {
+            setMessages(p => {
+              const arr = [...p];
+              if (arr[arr.length - 1]?.content === "Call connected. I'm listening...") arr.pop();
+              const next = [...arr, {
+                role: "user",
+                content: content.inputTranscription.text
+              }];
+              apiData("save_session", {
+                messages: next
+              });
+              return next;
+            });
+          }
+        }
+      };
+      ws.onerror = () => {
+        setCallStatus("error");
+        endCall();
+      };
+      ws.onclose = () => {
+        setCallStatus("disconnected");
+        endCall();
+      };
+    } catch (err) {
+      console.error(err);
+      setCallStatus("error");
+      setIsCalling(false);
+    }
+  };
+  const endCall = () => {
+    setIsCalling(false);
+    setCallStatus("disconnected");
+    if (micRef.current) micRef.current.stop();
+    if (audioRef.current) audioRef.current.stop();
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+  };
+  return {
+    isCalling,
+    callStatus,
+    startCall,
+    endCall
+  };
 }
 const EmotionalHeartbeat = ({
   state,
@@ -363,6 +566,13 @@ function SolenApp() {
   const [loadingIntel, setLoadingIntel] = useState(false);
   const endRef = useRef(null);
   const theme = THEMES[profile?.purpose || answers.purpose || "emotional"];
+  const sysPrompt = profile ? buildSystem(profile, memory, emotState) : "";
+  const {
+    isCalling,
+    callStatus,
+    startCall,
+    endCall
+  } = useGeminiLive(profile, sysPrompt, setMessages, setEmotState);
   useEffect(() => {
     (async () => {
       // Fast path: load profile first, show UI immediately
@@ -650,6 +860,16 @@ function SolenApp() {
     state: emotState,
     theme: theme
   }), /*#__PURE__*/React.createElement("button", {
+    onClick: isCalling ? endCall : startCall,
+    style: {
+      background: isCalling ? "#ef4444" : "rgba(255,255,255,0.05)",
+      border: "none",
+      color: isCalling ? "#fff" : theme.accent,
+      padding: "5px 12px",
+      borderRadius: 20,
+      fontSize: 11
+    }
+  }, isCalling ? "⏹ End Call" : "📞 Call"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setTab("insights"),
     style: {
       background: "rgba(255,255,255,0.05)",
@@ -659,7 +879,7 @@ function SolenApp() {
       borderRadius: 20,
       fontSize: 11
     }
-  }, "\uD83D\uDCCA Insights"))), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCCA"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       borderBottom: "1px solid rgba(255,255,255,0.06)"
@@ -851,7 +1071,22 @@ function SolenApp() {
       gap: 10,
       background: theme.bg
     }
-  }, /*#__PURE__*/React.createElement("textarea", {
+  }, isCalling ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: theme.accent,
+      fontSize: 15,
+      background: "rgba(255,255,255,0.02)",
+      borderRadius: 16
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      animation: "pulse 2s infinite"
+    }
+  }, "\uD83C\uDFA4 ", callStatus === 'connected' ? 'Listening... Speak now.' : 'Connecting...')) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("textarea", {
     rows: 1,
     value: input,
     onChange: e => setInput(e.target.value),
@@ -886,6 +1121,6 @@ function SolenApp() {
       alignItems: "center",
       justifyContent: "center"
     }
-  }, "\u2191")));
+  }, "\u2191"))));
 }
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(SolenApp, null));
