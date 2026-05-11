@@ -1,41 +1,36 @@
 <?php
 /**
- * Solen Puter AI Provider
- * Based on Puter.js / API docs
+ * Solen Fireworks AI Provider
+ * API: OpenAI Compatible
+ * Base URL: https://api.fireworks.ai/inference/v1
  */
 require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/includes/db.php';
 
-function provider_stream_puter(array $messages, string $system, int $maxTokens, ?string $model = null): void {
-    $token = get_setting('puter_auth_token') ?: (defined('PUTER_AUTH_TOKEN') ? PUTER_AUTH_TOKEN : '');
-    if (!$token) throw new RuntimeException('Puter Auth Token not configured');
+function provider_stream_fireworks(array $messages, string $system, int $maxTokens, ?string $model = null): void {
+    $key = get_setting('fireworks_api_key') ?: (defined('FIREWORKS_API_KEY') ? FIREWORKS_API_KEY : '');
+    if (!$key) throw new RuntimeException('Fireworks API key not configured');
 
-    $model   = $model ?: get_setting('puter_model', 'gpt-4o-mini');
+    $model   = $model ?: get_setting('fireworks_model', 'accounts/fireworks/models/minimax-m2p77');
     $payload = [
         'model'      => $model,
         'messages'   => array_merge(
             $system ? [['role' => 'system', 'content' => $system]] : [],
             $messages
         ),
+        'max_tokens' => $maxTokens,
         'stream'     => true,
     ];
 
-    $ch = curl_init('https://api.puter.com/puterai/openai/v1/chat/completions');
+    $ch = curl_init('https://api.fireworks.ai/inference/v1/chat/completions');
     curl_setopt_array($ch, [
         CURLOPT_POST          => true,
         CURLOPT_POSTFIELDS    => json_encode($payload),
         CURLOPT_HTTPHEADER    => [
             'Content-Type: application/json',
-            'Authorization: Bearer ' . $token,
+            'Authorization: Bearer ' . $key,
         ],
-        // Note: Puter's streaming format might differ slightly from OpenAI, 
-        // but often 'stream': true returns SSE chunks.
-        CURLOPT_WRITEFUNCTION => function ($ch, $data) {
-            echo $data;
-            if (ob_get_level()) ob_flush();
-            flush();
-            return strlen($data);
-        },
+        CURLOPT_WRITEFUNCTION => 'sse_passthrough_generic',
         CURLOPT_TIMEOUT       => 120,
     ]);
     curl_exec($ch);
@@ -43,27 +38,28 @@ function provider_stream_puter(array $messages, string $system, int $maxTokens, 
     curl_close($ch);
 }
 
-function provider_sync_puter(array $messages, string $system, int $maxTokens, ?string $model = null): ?string {
-    $token = get_setting('puter_auth_token') ?: (defined('PUTER_AUTH_TOKEN') ? PUTER_AUTH_TOKEN : '');
-    if (!$token) return null;
+function provider_sync_fireworks(array $messages, string $system, int $maxTokens, ?string $model = null): ?string {
+    $key = get_setting('fireworks_api_key') ?: (defined('FIREWORKS_API_KEY') ? FIREWORKS_API_KEY : '');
+    if (!$key) return null;
 
-    $model   = $model ?: get_setting('puter_model', 'gpt-4o-mini');
+    $model   = $model ?: get_setting('fireworks_model', 'accounts/fireworks/models/minimax-m2p77');
     $payload = [
         'model'    => $model,
         'messages' => array_merge(
             $system ? [['role' => 'system', 'content' => $system]] : [],
             $messages
         ),
-        'stream'   => false,
+        'max_tokens' => $maxTokens,
+        'stream'     => false,
     ];
 
-    $ch = curl_init('https://api.puter.com/v1/ai/chat');
+    $ch = curl_init('https://api.fireworks.ai/inference/v1/chat/completions');
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_POSTFIELDS     => json_encode($payload),
         CURLOPT_HTTPHEADER     => [
             'Content-Type: application/json',
-            'Authorization: Bearer ' . $token,
+            'Authorization: Bearer ' . $key,
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 30,
@@ -73,6 +69,5 @@ function provider_sync_puter(array $messages, string $system, int $maxTokens, ?s
     if (!$raw) return null;
 
     $resp = json_decode($raw, true);
-    // Puter (OpenAI-compatible) response format
     return $resp['choices'][0]['message']['content'] ?? null;
 }

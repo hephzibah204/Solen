@@ -18,6 +18,7 @@ require_once dirname(__DIR__) . '/providers/claude_provider.php';
 require_once dirname(__DIR__) . '/providers/puter.php';
 require_once dirname(__DIR__) . '/providers/groq.php';
 require_once dirname(__DIR__) . '/providers/hypereal.php';
+require_once dirname(__DIR__) . '/providers/fireworks.php';
 
 /**
  * Core router — streams directly to the client via SSE.
@@ -91,8 +92,8 @@ function _select_provider(string $userPlan): string {
     if ($userPlan === 'free') {
         $cheap = get_setting('ai_provider_free', ''); // admin can override
         if ($cheap) return $cheap;
-        // Default cost-saving order for free: Puter → Groq → Hypereal → HuggingFace → OpenRouter → Gemini → Claude
-        foreach (['puter', 'groq', 'hypereal', 'huggingface', 'openrouter', 'gemini', 'claude'] as $p) {
+        // Default cost-saving order for free: Puter → Groq → Hypereal → Fireworks → HuggingFace → OpenRouter → Gemini → Claude
+        foreach (['puter', 'groq', 'hypereal', 'fireworks', 'huggingface', 'openrouter', 'gemini', 'claude'] as $p) {
             if (_provider_has_key($p)) return $p;
         }
     }
@@ -101,7 +102,7 @@ function _select_provider(string $userPlan): string {
     if (_provider_has_key($configured)) return $configured;
 
     // Fallback: first available key
-    foreach (['claude', 'gemini', 'openrouter', 'groq', 'hypereal', 'huggingface', 'puter'] as $p) {
+    foreach (['claude', 'gemini', 'openrouter', 'groq', 'hypereal', 'fireworks', 'huggingface', 'puter'] as $p) {
         if (_provider_has_key($p)) return $p;
     }
 
@@ -116,6 +117,7 @@ function _provider_has_key(string $provider): bool {
         'huggingface' => !empty(get_setting('huggingface_api_key') ?: HUGGINGFACE_API_KEY),
         'groq'        => !empty(get_setting('groq_api_key') ?: GROQ_API_KEY),
         'hypereal'    => !empty(get_setting('hypereal_api_key') ?: HYPEREAL_API_KEY),
+        'fireworks'   => !empty(get_setting('fireworks_api_key') ?: FIREWORKS_API_KEY),
         'puter'       => !empty(get_setting('puter_auth_token') ?: (defined('PUTER_AUTH_TOKEN') ? PUTER_AUTH_TOKEN : '')),
         default       => false,
     };
@@ -127,7 +129,7 @@ function _provider_has_key(string $provider): bool {
 function _build_attempt_order(string $primary, bool $fallback): array {
     if (!$fallback) return [$primary];
 
-    $all = ['claude', 'gemini', 'openrouter', 'groq', 'hypereal', 'huggingface', 'puter'];
+    $all = ['claude', 'gemini', 'openrouter', 'groq', 'hypereal', 'fireworks', 'huggingface', 'puter'];
     // Primary first, then the rest in reliability order
     return array_merge([$primary], array_values(array_diff($all, [$primary])));
 }
@@ -142,6 +144,7 @@ function _stream_provider(string $provider, array $messages, string $system, int
             'huggingface' => provider_stream_huggingface($messages, $system, $maxTokens),
             'groq'        => provider_stream_groq($messages, $system, $maxTokens, $opts['model'] ?? null),
             'hypereal'    => provider_stream_hypereal($messages, $system, $maxTokens, $opts['model'] ?? null),
+            'fireworks'   => provider_stream_fireworks($messages, $system, $maxTokens, $opts['model'] ?? null),
             'puter'       => provider_stream_puter($messages, $system, $maxTokens, $opts['model'] ?? null),
             default       => provider_stream_claude($messages, $system, $maxTokens),
         };
@@ -160,6 +163,7 @@ function _sync_provider(string $provider, array $messages, string $system, int $
             'huggingface' => provider_sync_huggingface($messages, $system, $maxTokens),
             'groq'        => provider_sync_groq($messages, $system, $maxTokens, $opts['model'] ?? null),
             'hypereal'    => provider_sync_hypereal($messages, $system, $maxTokens, $opts['model'] ?? null),
+            'fireworks'   => provider_sync_fireworks($messages, $system, $maxTokens, $opts['model'] ?? null),
             'puter'       => provider_sync_puter($messages, $system, $maxTokens, $opts['model'] ?? null),
             default       => provider_sync_claude($messages, $system, $maxTokens),
         };

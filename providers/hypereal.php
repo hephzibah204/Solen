@@ -22,7 +22,7 @@ function provider_stream_hypereal(array $messages, string $system, int $maxToken
         'stream'     => true,
     ];
 
-    $ch = curl_init('https://hypereal.build/api/v1/chat/completions');
+    $ch = curl_init('https://hypereal.cloud/api/v1/chat/completions');
     curl_setopt_array($ch, [
         CURLOPT_POST          => true,
         CURLOPT_POSTFIELDS    => json_encode($payload),
@@ -53,7 +53,7 @@ function provider_sync_hypereal(array $messages, string $system, int $maxTokens,
         'stream'     => false,
     ];
 
-    $ch = curl_init('https://hypereal.build/api/v1/chat/completions');
+    $ch = curl_init('https://hypereal.cloud/api/v1/chat/completions');
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_POSTFIELDS     => json_encode($payload),

@@ -34,6 +34,7 @@ define('HUGGINGFACE_API_KEY', getenv('HUGGINGFACE_API_KEY') ?: '');
 define('OPENROUTER_API_KEY',  getenv('OPENROUTER_API_KEY')  ?: '');
 define('GROQ_API_KEY',        getenv('GROQ_API_KEY')        ?: '');
 define('HYPEREAL_API_KEY',    getenv('HYPEREAL_API_KEY')    ?: '');
+define('FIREWORKS_API_KEY',   getenv('FIREWORKS_API_KEY')   ?: '');
 define('PUTER_AUTH_TOKEN',    getenv('PUTER_AUTH_TOKEN')    ?: '');
 
 // ── PAYMENT GATEWAY KEYS ──────────────────────────────────────────────────

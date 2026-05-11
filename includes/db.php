@@ -364,6 +364,8 @@ function run_migrations(PDO $pdo): void {
         ['groq_model',           'llama-3.3-70b-versatile'],
         ['hypereal_api_key',     ''],
         ['hypereal_model',       'gpt-5.5'],
+        ['fireworks_api_key',    ''],
+        ['fireworks_model',      'accounts/fireworks/models/minimax-m2p77'],
         ['payment_gateway',      'stripe'],
         ['flutterwave_pk',       ''],
         ['flutterwave_sk',       ''],
