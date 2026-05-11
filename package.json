@@ -1,0 +1,26 @@
+{
+  "name": "solen",
+  "version": "1.0.0",
+  "description": "A full PHP + SQLite web application with landing page, user authentication, AI wellness coach, admin dashboard, blog CMS, and subscription management.",
+  "main": "sw.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hephzibah204/Solen.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/hephzibah204/Solen/issues"
+  },
+  "homepage": "https://github.com/hephzibah204/Solen#readme",
+  "dependencies": {
+    "@babel/cli": "^7.28.6",
+    "@babel/core": "^7.29.0",
+    "@babel/preset-react": "^7.28.5"
+  }
+}

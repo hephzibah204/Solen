@@ -357,7 +357,7 @@ function run_migrations(PDO $pdo): void {
         ['gemini_api_key',       ''],
         ['gemini_model',         'gemini-1.5-flash'],
         ['huggingface_api_key',  ''],
-        ['huggingface_model',    'mistralai/Mistral-7B-Instruct-v0.3'],
+        ['huggingface_model',    'Qwen/Qwen2.5-72B-Instruct'],
         ['openrouter_api_key',   ''],
         ['openrouter_model',     'meta-llama/llama-3.3-70b-instruct'],
         ['groq_api_key',         ''],

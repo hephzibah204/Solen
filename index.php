@@ -22,6 +22,11 @@ if (file_exists($landingPath)) {
             'href="/app.php"',
             $html
         );
+        $html = preg_replace(
+            '/<a href="\/login\.php" class="nav-login"[^>]*>Log in<\/a>/i',
+            '',
+            $html
+        );
     }
     echo $html;
 } else {

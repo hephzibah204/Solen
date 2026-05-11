@@ -9,8 +9,8 @@ function provider_stream_huggingface(array $messages, string $system, int $maxTo
     $key   = get_setting('huggingface_api_key') ?: (defined('HUGGINGFACE_API_KEY') ? HUGGINGFACE_API_KEY : '');
     if (!$key) throw new RuntimeException('HuggingFace API key not configured');
 
-    $model   = get_setting('huggingface_model', 'mistralai/Mistral-7B-Instruct-v0.3');
-    $url     = "https://api-inference.huggingface.co/v1/chat/completions";
+    $model   = get_setting('huggingface_model', 'Qwen/Qwen2.5-72B-Instruct');
+    $url     = "https://router.huggingface.co/v1/chat/completions";
     $payload = [
         'model'      => $model,
         'messages'   => array_merge(
@@ -41,8 +41,8 @@ function provider_sync_huggingface(array $messages, string $system, int $maxToke
     $key   = get_setting('huggingface_api_key') ?: (defined('HUGGINGFACE_API_KEY') ? HUGGINGFACE_API_KEY : '');
     if (!$key) return null;
 
-    $model   = get_setting('huggingface_model', 'mistralai/Mistral-7B-Instruct-v0.3');
-    $url     = "https://api-inference.huggingface.co/models/{$model}/v1/chat/completions";
+    $model   = get_setting('huggingface_model', 'Qwen/Qwen2.5-72B-Instruct');
+    $url     = "https://router.huggingface.co/v1/chat/completions";
     $payload = [
         'model'    => $model,
         'messages' => array_merge(
