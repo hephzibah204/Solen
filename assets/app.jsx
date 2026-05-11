@@ -187,6 +187,7 @@ function SolenApp() {
       if (pm?.profile?.coach_name) {
         setProfile(pm.profile);
         setProgDay(pm.profile.program_day || 0);
+        setMessages([{role:"assistant",content:`Hey. I'm ${pm.profile.coach_name}. How are you today?`}]);
         setPhase("chat");
         // Deferred: load remaining data after UI is visible
         const [mm, sm, md] = await Promise.all([
@@ -195,7 +196,6 @@ function SolenApp() {
         setMoods(md.moods || []);
         setMemory(mm.memory || []);
         if (sm?.messages?.length) setMessages(sm.messages);
-        else setMessages([{role:"assistant",content:`Hey. I'm ${pm.profile.coach_name}. How are you today?`}]);
       } else {
         setPhase("onboarding");
       }
@@ -218,7 +218,9 @@ function SolenApp() {
   function selectOpt(id, val) { setAnswers(p=>({...p,[id]:val})); setTimeout(()=>setStep(s=>s+1), 300); }
   async function confirmName() {
     const prof = {...answers, coach_name:nameIn.trim(), program_day:0};
-    setProfile(prof); await apiData("save_profile", prof);
+    setProfile(prof); 
+    setMessages([{role:"assistant",content:`Hey. I'm ${prof.coach_name}. How are you today?`}]);
+    await apiData("save_profile", prof);
     setPhase("reveal"); setTimeout(()=>setPhase("chat"), 2000);
   }
 

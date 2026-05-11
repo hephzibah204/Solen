@@ -370,15 +370,16 @@ function SolenApp() {
       if (pm?.profile?.coach_name) {
         setProfile(pm.profile);
         setProgDay(pm.profile.program_day || 0);
+        setMessages([{
+          role: "assistant",
+          content: `Hey. I'm ${pm.profile.coach_name}. How are you today?`
+        }]);
         setPhase("chat");
         // Deferred: load remaining data after UI is visible
         const [mm, sm, md] = await Promise.all([apiData('get_memory'), apiData('get_session'), apiData('get_moods')]);
         setMoods(md.moods || []);
         setMemory(mm.memory || []);
-        if (sm?.messages?.length) setMessages(sm.messages);else setMessages([{
-          role: "assistant",
-          content: `Hey. I'm ${pm.profile.coach_name}. How are you today?`
-        }]);
+        if (sm?.messages?.length) setMessages(sm.messages);
       } else {
         setPhase("onboarding");
       }
@@ -439,6 +440,10 @@ function SolenApp() {
       program_day: 0
     };
     setProfile(prof);
+    setMessages([{
+      role: "assistant",
+      content: `Hey. I'm ${prof.coach_name}. How are you today?`
+    }]);
     await apiData("save_profile", prof);
     setPhase("reveal");
     setTimeout(() => setPhase("chat"), 2000);
