@@ -21,8 +21,8 @@ $signupsByDay = db_query(
 );
 // MRR contribution added per week (last 12 weeks) — approximation
 $mrrByWeek = db_query(
-    "SELECT strftime('%Y-W%W', s.created_at) as week, COALESCE(SUM(s.amount),0) as n
-       FROM subscriptions s WHERE s.status='active' AND s.created_at >= date('now','-84 days')
+    "SELECT strftime('%Y-W%W', s.started_at) as week, COALESCE(SUM(s.amount),0) as n
+       FROM subscriptions s WHERE s.status='active' AND s.started_at >= date('now','-84 days')
        GROUP BY week ORDER BY week ASC"
 );
 // Trial → paid conversion

@@ -52,10 +52,17 @@ if ($action === 'ai_generate') {
     $topic = $_POST['topic'] ?? '';
     if (!$topic) { header('Content-Type: application/json'); echo json_encode(['error' => 'No topic provided']); exit; }
 
-    $system = "You are an expert wellness content writer for Solen, an AI wellness coach.
-               Your task is to write a high-quality, SEO-optimized blog post about the given topic.
-               Output valid JSON with these keys: title, slug, excerpt, content (HTML with H2/H3 tags), meta_title, meta_desc, tags (comma separated).
-               Tone: Empathetic, professional, and science-backed.";
+    $system = "You are a master SEO content strategist and wellness writer for Solen, an AI wellness coach.
+               Your goal is to write a high-quality, deeply empathetic, and science-backed blog post that ranks well on Google.
+               SEO Requirements:
+               - Title: Catchy, contains the primary keyword, under 60 characters.
+               - Slug: URL-friendly version of the title.
+               - Excerpt: A hook that summarizes the post in 150-160 characters.
+               - Content: Use semantic HTML (H2, H3). Include a strong introduction, actionable tips, and a conclusion with a soft call-to-action to use Solen.
+               - Meta Title/Desc: Optimized for click-through rate.
+               - Tags: 5-8 relevant wellness tags.
+               Tone: Compassionate, authoritative, and human-like.
+               Output valid JSON with keys: title, slug, excerpt, content, meta_title, meta_desc, tags.";
     $prompt = "Write a comprehensive blog post about: {$topic}";
 
     $messages = [['role' => 'user', 'content' => $prompt]];
@@ -66,7 +73,11 @@ if ($action === 'ai_generate') {
     ]);
 
     header('Content-Type: application/json');
-    if (!$res) { echo json_encode(['error' => 'AI generation failed — no response from provider']); exit; }
+    if (!$res) { 
+        $lastError = error_get_last();
+        echo json_encode(['error' => 'AI generation failed. This usually means the API key is invalid, leaked, or reached its limit. Check your settings.']); 
+        exit; 
+    }
     // Strip markdown code fences the model may wrap around JSON
     $clean = trim(preg_replace('/^```json|```$/m', '', trim($res)));
     echo $clean;
