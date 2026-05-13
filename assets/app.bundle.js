@@ -228,17 +228,35 @@ async function apiData(action, body = {}) {
   return r.json();
 }
 async function streamClaude(payload, onChunk) {
-  const provider = window.SOLEN_AI_PROVIDER || 'claude';
-  const r = await fetch(`/api/ai.php`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      ...payload,
-      provider
-    })
-  });
+  const provider = window.SOLEN_AI_PROVIDER || 'auto';
+  let r;
+  try {
+    r = await fetch(`/api/ai.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        ...payload,
+        provider
+      })
+    });
+  } catch (e) {
+    console.error('AI fetch failed:', e);
+    return '';
+  }
+  if (!r.ok && r.status !== 200) {
+    try {
+      const errorData = await r.json();
+      if (errorData.action === 'redirect' && errorData.url) {
+        window.location.href = errorData.url;
+        return '';
+      }
+      return errorData.message || errorData.error || `AI endpoint error: ${r.status}`;
+    } catch (e) {
+      return `AI endpoint error: ${r.status}`;
+    }
+  }
   const reader = r.body.getReader();
   const dec = new TextDecoder();
   let buf = "",
@@ -256,15 +274,39 @@ async function streamClaude(payload, onChunk) {
     buf = lines.pop();
     for (const line of lines) {
       if (!line.startsWith("data: ")) continue;
+      const raw = line.slice(6).trim();
+      if (raw === '[DONE]') continue;
       try {
-        const ev = JSON.parse(line.slice(6));
-        if (ev.type === "content_block_delta") {
-          full += ev.delta.text;
+        const ev = JSON.parse(raw);
+        // Router Error handling
+        if (ev.type === 'error' && ev.message) {
+          full = ev.message;
+          onChunk(full);
+          return full;
+        }
+        // OpenAI-compatible format (Groq, OpenRouter, HuggingFace, Fireworks, Hypereal)
+        const oaiDelta = ev.choices?.[0]?.delta?.content;
+        if (oaiDelta !== undefined && oaiDelta !== null) {
+          full += oaiDelta;
+          onChunk(full);
+          continue;
+        }
+        // Gemini SSE format
+        const geminiText = ev.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (geminiText) {
+          full += geminiText;
+          onChunk(full);
+          continue;
+        }
+        // Generic text field
+        if (ev.text) {
+          full += ev.text;
           onChunk(full);
         }
       } catch {}
     }
   }
+  return full;
 }
 
 // --- GEMINI LIVE AUDIO MANAGERS ---
@@ -355,12 +397,18 @@ class MicManager {
     if (this.audioCtx) this.audioCtx.close();
   }
 }
-function useGeminiLive(profile, systemPrompt, setMessages, setEmotState) {
+function useGeminiLive(profile, systemPrompt, messages, setMessages, setEmotState) {
   const [isCalling, setIsCalling] = useState(false);
   const [callStatus, setCallStatus] = useState("disconnected");
   const wsRef = useRef(null);
   const audioRef = useRef(null);
   const micRef = useRef(null);
+
+  // Track messages in a ref for the websocket closure
+  const msgsRef = useRef(messages);
+  useEffect(() => {
+    msgsRef.current = messages;
+  }, [messages]);
   const startCall = async () => {
     setIsCalling(true);
     setCallStatus("connecting");
@@ -375,7 +423,7 @@ function useGeminiLive(profile, systemPrompt, setMessages, setEmotState) {
         setCallStatus("connected");
         ws.send(JSON.stringify({
           setup: {
-            model: "models/gemini-2.0-flash-exp",
+            model: "models/gemini-2.0-flash-live-001",
             systemInstruction: {
               parts: [{
                 text: systemPrompt
@@ -408,33 +456,32 @@ function useGeminiLive(profile, systemPrompt, setMessages, setEmotState) {
           }
           if (content.turnComplete) {
             if (currentAiMsg) {
-              setMessages(p => {
-                const arr = [...p];
-                if (arr[arr.length - 1]?.content === "Call connected. I'm listening...") arr.pop();
-                const next = [...arr, {
-                  role: "assistant",
-                  content: currentAiMsg
-                }];
-                apiData("save_session", {
-                  messages: next
-                });
-                return next;
+              const arr = [...msgsRef.current];
+              if (arr[arr.length - 1]?.content === "Call connected. I'm listening...") arr.pop();
+              const nextMsgs = [...arr, {
+                role: "assistant",
+                content: currentAiMsg
+              }];
+              setMessages(nextMsgs);
+              apiData("save_session", {
+                messages: nextMsgs
               });
               currentAiMsg = "";
             }
           }
+          if (content.interrupted) {
+            currentAiMsg = "";
+          }
           if (content.inputTranscription && content.inputTranscription.text) {
-            setMessages(p => {
-              const arr = [...p];
-              if (arr[arr.length - 1]?.content === "Call connected. I'm listening...") arr.pop();
-              const next = [...arr, {
-                role: "user",
-                content: content.inputTranscription.text
-              }];
-              apiData("save_session", {
-                messages: next
-              });
-              return next;
+            const arr = [...msgsRef.current];
+            if (arr[arr.length - 1]?.content === "Call connected. I'm listening...") arr.pop();
+            const nextMsgs = [...arr, {
+              role: "user",
+              content: content.inputTranscription.text
+            }];
+            setMessages(nextMsgs);
+            apiData("save_session", {
+              messages: nextMsgs
             });
           }
         }
@@ -572,7 +619,7 @@ function SolenApp() {
     callStatus,
     startCall,
     endCall
-  } = useGeminiLive(profile, sysPrompt, setMessages, setEmotState);
+  } = useGeminiLive(profile, sysPrompt, messages, setMessages, setEmotState);
   useEffect(() => {
     (async () => {
       // Fast path: load profile first, show UI immediately
@@ -580,16 +627,24 @@ function SolenApp() {
       if (pm?.profile?.coach_name) {
         setProfile(pm.profile);
         setProgDay(pm.profile.program_day || 0);
-        setMessages([{
-          role: "assistant",
-          content: `Hey. I'm ${pm.profile.coach_name}. How are you today?`
-        }]);
-        setPhase("chat");
         // Deferred: load remaining data after UI is visible
         const [mm, sm, md] = await Promise.all([apiData('get_memory'), apiData('get_session'), apiData('get_moods')]);
         setMoods(md.moods || []);
         setMemory(mm.memory || []);
-        if (sm?.messages?.length) setMessages(sm.messages);
+        if (sm?.messages?.length) {
+          setMessages(sm.messages);
+        } else {
+          // New session: AI introduces itself and asks the opening prompt
+          const openingMsg = [{
+            role: 'assistant',
+            content: `Hey, I'm ${pm.profile.coach_name}. 💫`
+          }, {
+            role: 'assistant',
+            content: `Share one thing weighing on you today.`
+          }];
+          setMessages(openingMsg);
+        }
+        setPhase("chat");
       } else {
         setPhase("onboarding");
       }
@@ -623,7 +678,7 @@ function SolenApp() {
     setStream("");
     const next = [...history, {
       role: "assistant",
-      content: full
+      content: full || "I'm here with you. Could you say that again? (I had trouble connecting for a moment.)"
     }];
     setMessages(next);
     setLoading(false);
@@ -795,9 +850,15 @@ function SolenApp() {
       display: "flex",
       flexDirection: "column",
       color: "#fff",
-      overflow: "hidden"
+      overflow: "hidden",
+      maxWidth: 480,
+      margin: "0 auto",
+      borderLeft: "1px solid rgba(255,255,255,0.08)",
+      borderRight: "1px solid rgba(255,255,255,0.08)",
+      boxShadow: "0 0 80px rgba(0,0,0,0.5)"
     }
   }, /*#__PURE__*/React.createElement("style", null, `
+        body { background: #04040a; }
         @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
         .tab-btn{flex:1;padding:12px 0;border:none;background:transparent;color:rgba(255,255,255,0.3);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;cursor:pointer}
         .msg-bubble{max-width:80%;padding:12px 16px;border-radius:18px;line-height:1.6;font-size:14.5px}
@@ -884,7 +945,7 @@ function SolenApp() {
       display: "flex",
       borderBottom: "1px solid rgba(255,255,255,0.06)"
     }
-  }, ["chat", "program", "history"].map(t => /*#__PURE__*/React.createElement("button", {
+  }, ["chat", "history"].map(t => /*#__PURE__*/React.createElement("button", {
     key: t,
     onClick: () => setTab(t),
     className: "tab-btn",
@@ -1022,47 +1083,7 @@ function SolenApp() {
       opacity: 0.3,
       textAlign: "center"
     }
-  }, "Evolution snapshots update as you grow.")), activeTab === "program" && /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: 20
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: `${theme.accent}0f`,
-      padding: 24,
-      borderRadius: 24,
-      border: `1px solid ${theme.accent}33`
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: theme.accent,
-      textTransform: "uppercase",
-      marginBottom: 8
-    }
-  }, "Day ", progDay + 1), /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontFamily: "'Playfair Display',serif",
-      fontSize: 20,
-      lineHeight: 1.5,
-      marginBottom: 24
-    }
-  }, "\"", prog.days[progDay % prog.days.length], "\""), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setTab("chat");
-      send(prog.days[progDay % prog.days.length]);
-    },
-    style: {
-      background: theme.accent,
-      color: theme.soft,
-      border: "none",
-      padding: "12px 28px",
-      borderRadius: 50,
-      fontSize: 14,
-      fontWeight: 600,
-      width: "100%"
-    }
-  }, "Start Today's Session \u2192")))), activeTab === "chat" && /*#__PURE__*/React.createElement("div", {
+  }, "Evolution snapshots update as you grow."))), activeTab === "chat" && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 12,
       paddingBottom: "max(12px, env(safe-area-inset-bottom))",
@@ -1096,7 +1117,7 @@ function SolenApp() {
         send();
       }
     },
-    placeholder: "Type your heart out...",
+    placeholder: "What's on your mind?",
     style: {
       flex: 1,
       background: "rgba(255,255,255,0.05)",

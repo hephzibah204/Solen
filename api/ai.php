@@ -15,11 +15,13 @@ require_once dirname(__DIR__) . '/includes/predictive.php'; // Phase 10
 require_once dirname(__DIR__) . '/providers/router.php';
 
 check_maintenance(true);
+set_time_limit(120); // Prevent timeouts during multiple external API calls
+
 
 if (!is_logged_in())                                     { http_response_code(401); die('Unauthorized'); }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST')               { http_response_code(405); die('Method Not Allowed'); }
 
-// Support the claude.php shim which pre-reads and caches php://input.
+// Support backward-compat shims that pre-read and cache php://input.
 $rawBody = $GLOBALS['_SOLEN_CACHED_INPUT'] ?? file_get_contents('php://input');
 $body    = json_decode($rawBody, true);
 if (!$body) { http_response_code(400); die('Bad request'); }
@@ -128,7 +130,9 @@ header('Cache-Control: no-cache');
 header('X-Accel-Buffering: no');
 
 // ── ROUTE TO AI PROVIDER ──────────────────────────────────────────────────
-$provider = strtolower($body['provider'] ?? get_setting('ai_provider', 'claude'));
+// 'auto' = let the smart router pick the best available provider
+$provider = strtolower($body['provider'] ?? get_setting('ai_provider', 'auto'));
+if ($provider === 'claude') $provider = 'auto'; // Claude removed — redirect to smart routing
 
 // Audit crisis events (Phase 2 security)
 if ($emotionalState === 'crisis' && get_setting('crisis_log_enabled', '1') === '1') {
@@ -140,6 +144,7 @@ $systemPrompt = build_system_prompt($profile, [], $emotionalState, [
     'user_id'            => $_rl_uid,
     'current_text'       => $currentUserText,
     'predictive_insight' => $predInsight,
+    'fast_mode'          => true, // skip blocking external API calls like Cohere embedding
 ]);
 
 route_ai_request($messages, $systemPrompt, $maxTokens, [

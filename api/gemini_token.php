@@ -1,5 +1,6 @@
 <?php
 require_once dirname(__DIR__) . '/includes/auth.php';
+require_once dirname(__DIR__) . '/includes/db.php';
 
 // Only logged in users can get the token
 if (!is_logged_in()) {
@@ -7,8 +8,7 @@ if (!is_logged_in()) {
     die(json_encode(['error' => 'Unauthorized']));
 }
 
-$env = parse_ini_file(dirname(__DIR__) . '/.env');
-$apiKey = $env['GEMINI_API_KEY'] ?? '';
+$apiKey = get_api_key('gemini_api_key', 'GEMINI_API_KEY');
 
 if (!$apiKey) {
     http_response_code(500);

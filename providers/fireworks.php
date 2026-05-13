@@ -8,7 +8,7 @@ require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/includes/db.php';
 
 function provider_stream_fireworks(array $messages, string $system, int $maxTokens, ?string $model = null): void {
-    $key = get_setting('fireworks_api_key') ?: (defined('FIREWORKS_API_KEY') ? FIREWORKS_API_KEY : '');
+    $key = get_api_key('fireworks_api_key', 'FIREWORKS_API_KEY');
     if (!$key) throw new RuntimeException('Fireworks API key not configured');
 
     $model   = $model ?: get_setting('fireworks_model', 'accounts/fireworks/models/minimax-m2p77');
@@ -39,7 +39,7 @@ function provider_stream_fireworks(array $messages, string $system, int $maxToke
 }
 
 function provider_sync_fireworks(array $messages, string $system, int $maxTokens, ?string $model = null): ?string {
-    $key = get_setting('fireworks_api_key') ?: (defined('FIREWORKS_API_KEY') ? FIREWORKS_API_KEY : '');
+    $key = get_api_key('fireworks_api_key', 'FIREWORKS_API_KEY');
     if (!$key) return null;
 
     $model   = $model ?: get_setting('fireworks_model', 'accounts/fireworks/models/minimax-m2p77');

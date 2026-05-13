@@ -1,17 +1,16 @@
 <?php
 /**
- * Backward-compatible shim — routes to the new multi-provider ai.php.
+ * Backward-compatible shim — routes to the smart AI router.
  * Old integrations pointing to /api/claude.php continue to work.
- *
- * Fix (C2): php://input is a one-time read stream.
- * We read it ONCE here, inject the provider, then make it available
- * to ai.php via $GLOBALS so ai.php doesn't re-read the empty stream.
+ * Claude has been removed; requests are routed via smart auto-selection.
  */
 $rawInput = file_get_contents('php://input');
 $decoded  = json_decode($rawInput, true) ?? [];
 
-// Force Claude provider for backward compatibility
-$decoded['provider'] = 'claude';
+// Remove any explicit 'claude' provider — let the smart router pick the best one
+if (isset($decoded['provider']) && $decoded['provider'] === 'claude') {
+    unset($decoded['provider']); // Smart router will auto-select
+}
 
 // Cache the modified payload globally so ai.php can consume it
 $GLOBALS['_SOLEN_CACHED_INPUT'] = json_encode($decoded);

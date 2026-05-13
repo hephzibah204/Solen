@@ -3,7 +3,7 @@
  * Provides offline shell caching for a native app feel.
  */
 
-const CACHE_NAME = 'solen-v2';
+const CACHE_NAME = 'solen-v3';
 const SHELL_ASSETS = [
   '/app.php',
   '/dashboard.php',

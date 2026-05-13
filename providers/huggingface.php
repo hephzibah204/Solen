@@ -6,7 +6,7 @@ require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/includes/db.php';
 
 function provider_stream_huggingface(array $messages, string $system, int $maxTokens): void {
-    $key   = get_setting('huggingface_api_key') ?: (defined('HUGGINGFACE_API_KEY') ? HUGGINGFACE_API_KEY : '');
+    $key   = get_api_key('huggingface_api_key', 'HUGGINGFACE_API_KEY');
     if (!$key) throw new RuntimeException('HuggingFace API key not configured');
 
     $model   = get_setting('huggingface_model', 'Qwen/Qwen2.5-72B-Instruct');
@@ -38,7 +38,7 @@ function provider_stream_huggingface(array $messages, string $system, int $maxTo
 }
 
 function provider_sync_huggingface(array $messages, string $system, int $maxTokens): ?string {
-    $key   = get_setting('huggingface_api_key') ?: (defined('HUGGINGFACE_API_KEY') ? HUGGINGFACE_API_KEY : '');
+    $key   = get_api_key('huggingface_api_key', 'HUGGINGFACE_API_KEY');
     if (!$key) return null;
 
     $model   = get_setting('huggingface_model', 'Qwen/Qwen2.5-72B-Instruct');

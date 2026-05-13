@@ -114,8 +114,9 @@ function build_system_prompt(array $profile, array $memory = [], string $emotion
     // Memory injection — Phase 3 (semantic + episodic + emotional, with legacy fallback)
     $memoryBlock = '';
     $userId = (int)($opts['user_id'] ?? 0);
+    $fastMode = (bool)($opts['fast_mode'] ?? false);
     if ($userId && function_exists('memory_build_context') && get_setting('memory_enabled', '1') === '1') {
-        $memoryBlock = memory_build_context($userId, $opts['current_text'] ?? '');
+        $memoryBlock = memory_build_context($userId, $opts['current_text'] ?? '', $fastMode);
     }
 
     // Legacy fallback: coach_memory rows (Phase 1 simple summaries)

@@ -75,4 +75,7 @@ ServerSignature Off
 
     # Block direct DB access
     RewriteRule ^database/ - [F,L]
+
+    # Block diagnostic/scratch access
+    RewriteRule ^scratch/ - [F,L]
 </IfModule>

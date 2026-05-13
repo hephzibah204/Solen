@@ -8,7 +8,7 @@ require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/includes/db.php';
 
 function provider_stream_groq(array $messages, string $system, int $maxTokens, ?string $model = null): void {
-    $key = get_setting('groq_api_key') ?: (defined('GROQ_API_KEY') ? GROQ_API_KEY : '');
+    $key = get_api_key('groq_api_key', 'GROQ_API_KEY');
     if (!$key) throw new RuntimeException('Groq API key not configured');
 
     $model   = $model ?: get_setting('groq_model', 'llama-3.3-70b-versatile');
@@ -34,12 +34,14 @@ function provider_stream_groq(array $messages, string $system, int $maxTokens, ?
         CURLOPT_TIMEOUT       => 120,
     ]);
     curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     if (curl_errno($ch)) { $err = curl_error($ch); curl_close($ch); throw new RuntimeException($err); }
     curl_close($ch);
+    if ($httpCode >= 400) throw new RuntimeException("Groq API Error: HTTP {$httpCode}");
 }
 
 function provider_sync_groq(array $messages, string $system, int $maxTokens, ?string $model = null): ?string {
-    $key = get_setting('groq_api_key') ?: (defined('GROQ_API_KEY') ? GROQ_API_KEY : '');
+    $key = get_api_key('groq_api_key', 'GROQ_API_KEY');
     if (!$key) return null;
 
     $model   = $model ?: get_setting('groq_model', 'llama-3.3-70b-versatile');

@@ -6,7 +6,7 @@ require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/includes/db.php';
 
 function provider_stream_gemini(array $messages, string $system, int $maxTokens): void {
-    $key   = get_setting('gemini_api_key') ?: (defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '');
+    $key   = get_api_key('gemini_api_key', 'GEMINI_API_KEY');
     if (!$key) throw new RuntimeException('Gemini API key not configured');
 
     $model = get_setting('gemini_model', 'gemini-3-flash-preview');
@@ -40,12 +40,14 @@ function provider_stream_gemini(array $messages, string $system, int $maxTokens)
         CURLOPT_TIMEOUT => 120,
     ]);
     curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     if (curl_errno($ch)) { $err = curl_error($ch); curl_close($ch); throw new RuntimeException($err); }
     curl_close($ch);
+    if ($httpCode >= 400) throw new RuntimeException("Gemini API Error: HTTP {$httpCode}");
 }
 
 function provider_sync_gemini(array $messages, string $system, int $maxTokens): ?string {
-    $key   = get_setting('gemini_api_key') ?: (defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '');
+    $key   = get_api_key('gemini_api_key', 'GEMINI_API_KEY');
     if (!$key) return null;
 
     $model = get_setting('gemini_model', 'gemini-3-flash-preview');

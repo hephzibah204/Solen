@@ -7,7 +7,7 @@ require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/includes/db.php';
 
 function provider_stream_puter(array $messages, string $system, int $maxTokens, ?string $model = null): void {
-    $token = get_setting('puter_auth_token') ?: (defined('PUTER_AUTH_TOKEN') ? PUTER_AUTH_TOKEN : '');
+    $token = get_api_key('puter_auth_token', 'PUTER_AUTH_TOKEN');
     if (!$token) throw new RuntimeException('Puter Auth Token not configured');
 
     $model   = $model ?: get_setting('puter_model', 'gpt-4o-mini');
@@ -45,7 +45,7 @@ function provider_stream_puter(array $messages, string $system, int $maxTokens, 
 }
 
 function provider_sync_puter(array $messages, string $system, int $maxTokens, ?string $model = null): ?string {
-    $token = get_setting('puter_auth_token') ?: (defined('PUTER_AUTH_TOKEN') ? PUTER_AUTH_TOKEN : '');
+    $token = get_api_key('puter_auth_token', 'PUTER_AUTH_TOKEN');
     if (!$token) return null;
 
     $model   = $model ?: get_setting('puter_model', 'gpt-4o-mini');

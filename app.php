@@ -41,10 +41,12 @@ body{
   overflow:hidden;
   overscroll-behavior:none;
   -webkit-overflow-scrolling:touch;
+  display:flex;
+  flex-direction:column;
   padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ── DESIGN TOKENS ─────────────────────────────────────────────────── */
@@ -59,7 +61,57 @@ body{
   --sab: env(safe-area-inset-bottom, 0px);
 }
 
-#root{ height:100%; display:flex; flex-direction:column; isolation:isolate; }
+/* ── SITE NAV ───────────────────────────────────────────────────────── */
+.solen-nav{
+  background:rgba(7,7,15,0.98);
+  border-bottom:1px solid rgba(255,255,255,0.07);
+  backdrop-filter:blur(16px);
+  flex-shrink:0;
+  z-index:100;
+}
+.solen-nav-inner{
+  max-width:480px;
+  margin:0 auto;
+  padding:0 16px;
+  height:52px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.solen-nav-logo{
+  font-family:'Playfair Display',serif;
+  font-size:19px;
+  color:#b8956a;
+  text-decoration:none;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.solen-nav-dot{
+  width:6px;height:6px;
+  background:#b8956a;
+  border-radius:50%;
+  box-shadow:0 0 6px #b8956a;
+  display:inline-block;
+}
+.solen-nav-links{
+  display:flex;
+  gap:2px;
+}
+.solen-nav-link{
+  padding:6px 11px;
+  border-radius:8px;
+  font-size:12px;
+  font-weight:500;
+  color:rgba(242,237,232,0.42);
+  text-decoration:none;
+  transition:color 0.2s,background 0.2s;
+  white-space:nowrap;
+}
+.solen-nav-link:hover{color:#f2ede8;background:rgba(255,255,255,0.06);}
+.solen-nav-link.nav-active{color:#f2ede8;background:rgba(255,255,255,0.07);}
+
+#root{ flex:1; min-height:0; display:flex; flex-direction:column; isolation:isolate; overflow:hidden; }
 
 .trial-bar{
   background:rgba(184,149,106,0.1);
@@ -127,6 +179,20 @@ textarea,input[type="text"]{
 </style>
 </head>
 <body>
+<nav class="solen-nav">
+  <div class="solen-nav-inner">
+    <a href="/dashboard.php" class="solen-nav-logo">
+      <span class="solen-nav-dot"></span>Solen
+    </a>
+    <div class="solen-nav-links">
+      <a href="/dashboard.php" class="solen-nav-link">Dashboard</a>
+      <span class="solen-nav-link nav-active">Chat</span>
+      <a href="/rituals.php" class="solen-nav-link">Rituals</a>
+      <a href="/timeline.php" class="solen-nav-link">Growth</a>
+      <a href="/logout.php" class="solen-nav-link">Logout</a>
+    </div>
+  </div>
+</nav>
 <?php if ($trialing && $trialDays <= 3): ?>
 <div class="trial-bar">
   <span>⏳ <?= $trialDays ?> day<?= $trialDays!=1?'s':'' ?> left on your free trial</span>
@@ -137,11 +203,11 @@ textarea,input[type="text"]{
 <script>
 window.SOLEN_USER = { id: <?= json_encode($user['id']) ?>, name: <?= json_encode($user['name']) ?>, email: <?= json_encode($user['email']) ?> };
 window.SOLEN_API_BASE = '/api';
-window.SOLEN_AI_PROVIDER = <?= json_encode(get_setting('ai_provider','openrouter')) ?>;
+window.SOLEN_AI_PROVIDER = <?= json_encode(get_setting('ai_provider','auto')) ?>;
 </script>
 <script src="/assets/react.production.min.js"></script>
 <script src="/assets/react-dom.production.min.js"></script>
-<script src="/assets/app.bundle.js"></script>
+<script src="/assets/app.bundle.js?v=<?= filemtime(__DIR__ . '/assets/app.bundle.js') ?>"></script>
 
 <div id="pwa-install-banner" role="dialog">
   <div class="pwa-banner-inner">

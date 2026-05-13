@@ -1,5 +1,6 @@
 <?php
-require_once __DIR__ . '/../includes/db.php';
-$users = db_query("SELECT email, role FROM users LIMIT 10");
-header('Content-Type: application/json');
-echo json_encode($users, JSON_PRETTY_PRINT);
+require 'includes/db.php';
+$users = db_query("SELECT id, name, email, plan, trial_ends FROM users");
+print_r($users);
+$limits = db_query("SELECT * FROM ai_rate_limits");
+print_r($limits);

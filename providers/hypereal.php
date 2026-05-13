@@ -8,7 +8,7 @@ require_once dirname(__DIR__) . '/config.php';
 require_once dirname(__DIR__) . '/includes/db.php';
 
 function provider_stream_hypereal(array $messages, string $system, int $maxTokens, ?string $model = null): void {
-    $key = get_setting('hypereal_api_key') ?: (defined('HYPEREAL_API_KEY') ? HYPEREAL_API_KEY : '');
+    $key = get_api_key('hypereal_api_key', 'HYPEREAL_API_KEY');
     if (!$key) throw new RuntimeException('Hypereal API key not configured');
 
     $model   = $model ?: get_setting('hypereal_model', 'gpt-5.5');
@@ -39,7 +39,7 @@ function provider_stream_hypereal(array $messages, string $system, int $maxToken
 }
 
 function provider_sync_hypereal(array $messages, string $system, int $maxTokens, ?string $model = null): ?string {
-    $key = get_setting('hypereal_api_key') ?: (defined('HYPEREAL_API_KEY') ? HYPEREAL_API_KEY : '');
+    $key = get_api_key('hypereal_api_key', 'HYPEREAL_API_KEY');
     if (!$key) return null;
 
     $model   = $model ?: get_setting('hypereal_model', 'gpt-5.5');

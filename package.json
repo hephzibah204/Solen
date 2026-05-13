@@ -4,7 +4,8 @@
   "description": "A full PHP + SQLite web application with landing page, user authentication, AI wellness coach, admin dashboard, blog CMS, and subscription management.",
   "main": "sw.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npx babel assets/app.jsx --presets @babel/preset-react -o assets/app.bundle.js"
   },
   "repository": {
     "type": "git",

@@ -200,16 +200,6 @@ admin_head('Settings'); admin_sidebar('settings');
       <?php elseif ($tab === 'integrations'): ?>
       <div style="display:flex;flex-direction:column;gap:16px;max-width:700px">
         <div class="card">
-          <div class="card-header"><div class="card-title">Anthropic / Claude API</div></div>
-          <div class="form-group">
-            <label>API Key</label>
-            <input class="form-control" type="password" name="claude_api_key"
-                   value="<?= $s('claude_api_key') ?>" placeholder="sk-ant-…"/>
-          </div>
-          <p class="text-muted text-sm" style="margin-top:8px">Get your key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a>. Also set <code style="color:var(--accent)">CLAUDE_API_KEY</code> in config.php for the streaming proxy.</p>
-        </div>
-
-        <div class="card">
           <div class="card-header"><div class="card-title">Stripe Payments</div></div>
           <div class="form-grid">
             <div class="form-group">
@@ -257,14 +247,17 @@ admin_head('Settings'); admin_sidebar('settings');
           <div class="form-group">
             <label>Select Default Provider</label>
             <select class="form-control" name="ai_provider" style="max-width:360px">
-              <option value="claude" <?= $s('ai_provider')==='claude'?'selected':'' ?>>Anthropic Claude (Best)</option>
-              <option value="gemini" <?= $s('ai_provider')==='gemini'?'selected':'' ?>>Google Gemini (Fast)</option>
-              <option value="openrouter" <?= $s('ai_provider')==='openrouter'?'selected':'' ?>>OpenRouter (Llama 3)</option>
+              <option value="auto" <?= $s('ai_provider')==='auto'||$s('ai_provider')===''||$s('ai_provider')==='claude'?'selected':'' ?>>🤖 Auto (Smart Routing — Best Available)</option>
+              <option value="gemini" <?= $s('ai_provider')==='gemini'?'selected':'' ?>>Google Gemini (Recommended)</option>
+              <option value="openrouter" <?= $s('ai_provider')==='openrouter'?'selected':'' ?>>OpenRouter (Llama 3 / Multi-model)</option>
+              <option value="groq" <?= $s('ai_provider')==='groq'?'selected':'' ?>>Groq (Ultra-Fast)</option>
+              <option value="fireworks" <?= $s('ai_provider')==='fireworks'?'selected':'' ?>>Fireworks AI</option>
+              <option value="hypereal" <?= $s('ai_provider')==='hypereal'?'selected':'' ?>>Hypereal</option>
               <option value="huggingface" <?= $s('ai_provider')==='huggingface'?'selected':'' ?>>HuggingFace (Cheapest)</option>
               <option value="puter" <?= $s('ai_provider')==='puter'?'selected':'' ?>>Puter AI</option>
             </select>
           </div>
-          <p class="text-muted text-sm" style="margin-top:8px">This provider will be used for all standard coaching conversations.</p>
+          <p class="text-muted text-sm" style="margin-top:8px">⚡ <strong style="color:var(--accent)">Smart Routing</strong> automatically picks the best available provider based on key availability and cost. If one fails, it falls back to the next in the chain.</p>
         </div>
 
         <div class="card">
@@ -290,14 +283,27 @@ admin_head('Settings'); admin_sidebar('settings');
         </div>
 
         <div class="card">
-          <div class="card-header"><div class="card-title">Anthropic Claude</div></div>
+          <div class="card-header"><div class="card-title">Groq API (Ultra-Fast)</div></div>
           <div class="form-group">
-            <label>Claude API Key</label>
-            <input class="form-control" type="password" name="claude_api_key" value="<?= $s('claude_api_key') ?>"/>
+            <label>Groq API Key</label>
+            <input class="form-control" type="password" name="groq_api_key" value="<?= $s('groq_api_key') ?>"/>
           </div>
           <div class="form-group" style="margin-top:12px">
-            <label>Core Coaching Model</label>
-            <input class="form-control" name="claude_model" value="<?= $s('claude_model','claude-3-5-sonnet-20241022') ?>"/>
+            <label>Model</label>
+            <input class="form-control" name="groq_model" value="<?= $s('groq_model','llama-3.3-70b-versatile') ?>"/>
+          </div>
+          <p class="text-muted text-sm" style="margin-top:8px">Groq runs open models at exceptional speed. Great primary or fallback choice.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Fireworks AI</div></div>
+          <div class="form-group">
+            <label>Fireworks API Key</label>
+            <input class="form-control" type="password" name="fireworks_api_key" value="<?= $s('fireworks_api_key') ?>"/>
+          </div>
+          <div class="form-group" style="margin-top:12px">
+            <label>Model</label>
+            <input class="form-control" name="fireworks_model" value="<?= $s('fireworks_model','accounts/fireworks/models/llama-v3p1-70b-instruct') ?>"/>
           </div>
         </div>
 

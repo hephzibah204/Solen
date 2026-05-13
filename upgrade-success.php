@@ -69,7 +69,7 @@ if ($gateway === 'paystack' && isset($_GET['reference'])) {
     curl_close($ch);
     if (($res['data']['status'] ?? '') === 'success') {
         $meta = $res['data']['metadata'] ?? [];
-        activate_plan((int)$user['id'], $meta['plan'] ?? 'pro', 'monthly', $res['data']['amount'] / 100, 'paystack', $ref);
+        activate_plan((int)$user['id'], $meta['plan'] ?? 'pro', $meta['billing'] ?? 'monthly', $res['data']['amount'] / 100, 'paystack', $ref);
     }
 }
 

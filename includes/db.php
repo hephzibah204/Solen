@@ -211,18 +211,50 @@ function db_count(string $table, string $where = '1', array $params = []): int {
 }
 
 function get_setting(string $key, string $default = ''): string {
-    // Priority 1: Environment Variables (e.g. from .env)
+    // Priority 1: Environment Variables (e.g. from .env or server config)
     $envKey = strtoupper($key);
     $val = getenv($envKey);
-    if ($val !== false) return (string)$val;
+    if ($val !== false && $val !== '') return (string)$val;
+    // Also check $_ENV superglobal (populated by some SAPI configurations)
+    if (!empty($_ENV[$envKey])) return (string)$_ENV[$envKey];
 
-    // Priority 2: Database Settings
+    // Priority 2: Admin Database Settings
     $row = db_one("SELECT value FROM settings WHERE key=?", [$key]);
     return $row ? $row['value'] : $default;
 }
 
 function set_setting(string $key, string $value): void {
     db_run("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [$key, $value]);
+}
+
+/**
+ * get_api_key — Canonical API key resolver.
+ *
+ * Priority:
+ *   1. Environment variable  (getenv / $_ENV)  — e.g. GEMINI_API_KEY in .env or server config
+ *   2. Admin database setting                   — e.g. set via Admin → Settings
+ *   3. PHP constant from config.php             — e.g. define('GEMINI_API_KEY', '...')
+ *
+ * Usage: $key = get_api_key('gemini_api_key', 'GEMINI_API_KEY');
+ */
+function get_api_key(string $settingKey, string $constantName = ''): string {
+    // 1. Environment variable (highest priority — server/deployment config)
+    $envKey = strtoupper($settingKey);
+    $fromEnv = getenv($envKey);
+    if ($fromEnv !== false && $fromEnv !== '') return $fromEnv;
+    if (!empty($_ENV[$envKey])) return $_ENV[$envKey];
+
+    // 2. Admin DB setting (configured via admin panel)
+    $row = db_one("SELECT value FROM settings WHERE key=?", [$settingKey]);
+    if ($row && !empty($row['value'])) return $row['value'];
+
+    // 3. PHP constant from config.php (fallback for legacy deployments)
+    if ($constantName && defined($constantName)) {
+        $v = constant($constantName);
+        if ($v !== '') return (string)$v;
+    }
+
+    return '';
 }
 
 // NOTE: appended by upgrade — payment_transactions table + new settings

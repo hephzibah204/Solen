@@ -51,7 +51,7 @@ function handle_initiate(string $gateway, string $plan, string $billing, array $
 
 // ── STRIPE ────────────────────────────────────────────────────────────────
 function initiate_stripe(array $user, string $plan, string $billing, float $amount): void {
-    $sk = get_setting('stripe_sk') ?: STRIPE_SK;
+    $sk = get_api_key('stripe_sk', 'STRIPE_SK');
     if (!$sk) { json_err('Stripe not configured.'); return; }
 
     $priceId = get_setting("stripe_price_{$plan}_{$billing}");
@@ -89,8 +89,7 @@ function initiate_stripe(array $user, string $plan, string $billing, float $amou
 
 // ── FLUTTERWAVE ───────────────────────────────────────────────────────────
 function initiate_flutterwave(array $user, string $plan, string $billing, float $amount): void {
-    $pk  = get_setting('flutterwave_pk') ?: FLUTTERWAVE_PK;
-    $sk  = get_setting('flutterwave_sk') ?: FLUTTERWAVE_SK;
+    $sk  = get_api_key('flutterwave_sk', 'FLUTTERWAVE_SK');
     if (!$sk) { json_err('Flutterwave not configured.'); return; }
 
     $txRef  = 'solen_' . $user['id'] . '_' . time();
@@ -134,7 +133,7 @@ function initiate_flutterwave(array $user, string $plan, string $billing, float 
 
 // ── PAYSTACK ─────────────────────────────────────────────────────────────
 function initiate_paystack(array $user, string $plan, string $billing, float $amount): void {
-    $sk = get_setting('paystack_sk') ?: PAYSTACK_SK;
+    $sk = get_api_key('paystack_sk', 'PAYSTACK_SK');
     if (!$sk) { json_err('Paystack not configured.'); return; }
 
     $ref = 'solen_' . $user['id'] . '_' . time();
@@ -181,7 +180,7 @@ function handle_verify(string $gateway, array $body, array $user): void {
 }
 
 function verify_flutterwave(array $body, array $user): void {
-    $sk     = get_setting('flutterwave_sk') ?: FLUTTERWAVE_SK;
+    $sk     = get_api_key('flutterwave_sk', 'FLUTTERWAVE_SK');
     $txId   = $body['transaction_id'] ?? '';
     if (!$txId) { json_err('Missing transaction_id'); return; }
 
@@ -205,7 +204,7 @@ function verify_flutterwave(array $body, array $user): void {
 }
 
 function verify_paystack(array $body, array $user): void {
-    $sk  = get_setting('paystack_sk') ?: PAYSTACK_SK;
+    $sk  = get_api_key('paystack_sk', 'PAYSTACK_SK');
     $ref = $body['reference'] ?? '';
     if (!$ref) { json_err('Missing reference'); return; }
 
@@ -220,7 +219,7 @@ function verify_paystack(array $body, array $user): void {
 
     if (($data['data']['status'] ?? '') === 'success') {
         $meta = $data['data']['metadata'] ?? [];
-        activate_plan($meta['user_id'] ?? $user['id'], $meta['plan'] ?? 'pro', 'monthly',
+        activate_plan($meta['user_id'] ?? $user['id'], $meta['plan'] ?? 'pro', $meta['billing'] ?? 'monthly',
                       ($data['data']['amount'] / 100), 'paystack', $ref);
         echo json_encode(['status' => 'success']);
     } else {

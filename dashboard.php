@@ -124,6 +124,7 @@ nav{padding:0;border-bottom:1px solid var(--border);background:rgba(7,7,15,0.95)
         </div>
       <?php endif ?>
       <a href="/app.php" class="btn btn-gold">Open Coach</a>
+      <a href="/profile.php" class="btn btn-ghost" style="gap:6px">👤 Profile</a>
       <?php if ($user['role']==='admin'): ?><a href="/admin/index.php" class="btn btn-ghost">Admin</a><?php endif ?>
     </div>
   </div>

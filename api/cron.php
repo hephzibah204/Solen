@@ -26,6 +26,9 @@ require_once dirname(__DIR__) . '/includes/memory.php';
 require_once dirname(__DIR__) . '/includes/retention.php';
 require_once dirname(__DIR__) . '/providers/router.php';
 
+set_time_limit(0); // Prevent timeouts for long-running cron jobs
+
+
 // ── Authentication ──────────────────────────────────────────────────────────
 $secret   = get_setting('cron_secret');
 $provided = $_SERVER['HTTP_X_CRON_SECRET'] ?? '';

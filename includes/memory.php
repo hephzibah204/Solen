@@ -262,7 +262,11 @@ function _memory_generate_embedding(int $episodeId, string $text): void {
  * @param int    $limit
  * @return array  Array of memory_episodes rows, ordered by similarity DESC
  */
-function memory_search_semantic(int $userId, string $query, int $limit = 5): array {
+function memory_search_semantic(int $userId, string $query, int $limit = 5, bool $fastMode = false): array {
+    if ($fastMode) {
+        return _memory_keyword_search($userId, $query, $limit);
+    }
+
     $apiKey = get_setting('cohere_api_key') ?: (defined('COHERE_API_KEY') ? COHERE_API_KEY : '');
 
     // Try embedding-based search first
@@ -458,14 +462,14 @@ function _memory_rerank_episode(int $episodeId): void {
  * @param string $currentText   The user's current message (for semantic search)
  * @return string               Ready-to-inject memory block
  */
-function memory_build_context(int $userId, string $currentText = ''): string {
+function memory_build_context(int $userId, string $currentText = '', bool $fastMode = false): string {
     // 1. Always include top-ranked episodic memories
     $ranked = memory_get_ranked($userId, 6);
 
     // 2. Add semantically relevant memories for current message
     $semantic = [];
     if (strlen(trim($currentText)) > 10) {
-        $semantic = memory_search_semantic($userId, $currentText, 3);
+        $semantic = memory_search_semantic($userId, $currentText, 3, $fastMode);
         // De-duplicate against ranked
         $rankedIds = array_column($ranked, 'id');
         $semantic  = array_filter($semantic, fn($ep) => !in_array($ep['id'], $rankedIds));

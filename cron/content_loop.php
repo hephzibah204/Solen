@@ -66,7 +66,7 @@ $messages = [['role' => 'user', 'content' => $prompt]];
 
 // Sync call to AI Router
 $jsonStr = route_ai_request_sync($messages, $system, 3000, [
-    'provider' => get_setting('ai_provider', 'claude')
+    'provider' => get_setting('ai_provider', 'openrouter')
 ]);
 
 if (!$jsonStr) {
