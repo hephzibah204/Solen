@@ -117,7 +117,7 @@ $profile = db_one("SELECT * FROM coach_profiles WHERE user_id=?", [$_rl_uid]) ??
 // ── PREDICTIVE INTELLIGENCE (Phase 10) ───────────────────────────────────
 // Run a lightweight analysis; use the summary as a coach insight hint.
 $predInsight = '';
-if ($_rl_plan !== 'free' && function_exists('predictive_analyze_user')) {
+if (in_array($_rl_plan, ['pro', 'premium']) && function_exists('predictive_analyze_user')) {
     $predAnalysis = predictive_analyze_user($_rl_uid);
     if (!empty($predAnalysis['insights'])) {
         $predInsight = $predAnalysis['summary'] ?? '';

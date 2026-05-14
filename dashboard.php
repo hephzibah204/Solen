@@ -25,6 +25,18 @@ for ($i=6;$i>=0;$i--) {
     foreach ($moods as $ml) { if ($ml['logged_date']===$d) { $m=$ml; break; } }
     $days[] = ['date'=>$d,'day'=>date('D',strtotime($d)),'mood'=>$m];
 }
+
+// Phase 6: Family & Learning
+$family = db_one("SELECT fg.name, (SELECT MAX(day_streak) FROM coach_profiles cp JOIN family_members fm2 ON fm2.user_id=cp.user_id WHERE fm2.group_id=fm.group_id) as family_max_streak FROM family_members fm JOIN family_groups fg ON fg.id=fm.group_id WHERE fm.user_id=?", [$user['id']]);
+
+$todayArticle = db_one(
+    "SELECT sa.*, sp.quiz_completed, sp.read_at FROM streak_articles sa
+     LEFT JOIN streak_user_progress sp ON sp.article_id=sa.id AND sp.user_id=?
+     WHERE sa.category=? AND (sp.id IS NULL OR sp.quiz_completed=0)
+     LIMIT 1",
+    [$user['id'], $coach['purpose'] ?? 'wellness']
+);
+if (!$todayArticle) $todayArticle = db_one("SELECT sa.*, sp.quiz_completed, sp.read_at FROM streak_articles sa LEFT JOIN streak_user_progress sp ON sp.article_id=sa.id AND sp.user_id=? WHERE (sp.id IS NULL OR sp.quiz_completed=0) LIMIT 1", [$user['id']]);
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -150,12 +162,18 @@ nav{padding:0;border-bottom:1px solid var(--border);background:rgba(7,7,15,0.95)
   <?php endif ?>
 
   <!-- Stats -->
-  <div class="stats-grid">
     <div class="stat-card">
-      <div class="stat-label">Day Streak</div>
+      <div class="stat-label"><?= !empty($coach['addiction_focus']) ? 'Recovery Clarity' : 'Day Streak' ?></div>
       <div class="stat-value"><?= $coach['day_streak'] ?? 0 ?></div>
-      <div class="stat-sub">days in a row 🔥</div>
+      <div class="stat-sub"><?= !empty($coach['addiction_focus']) ? 'days of clarity 🛡️' : 'days in a row 🔥' ?></div>
     </div>
+    <?php if ($family): ?>
+    <div class="stat-card">
+      <div class="stat-label">Family Streak</div>
+      <div class="stat-value"><?= $family['family_max_streak'] ?? 0 ?></div>
+      <div class="stat-sub">shared momentum 🫂</div>
+    </div>
+    <?php else: ?>
     <div class="stat-card">
       <div class="stat-label">Emotional Pulse</div>
       <div style="height:40px;margin-top:10px">
@@ -163,17 +181,18 @@ nav{padding:0;border-bottom:1px solid var(--border);background:rgba(7,7,15,0.95)
       </div>
       <div class="stat-sub">real-time stability</div>
     </div>
+    <?php endif ?>
     <div class="stat-card">
       <div class="stat-label">Avg Mood (7d)</div>
       <div class="stat-value"><?= $avgMood ?? '—' ?></div>
       <div class="stat-sub">out of 5.0</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Intelligence</div>
-      <div class="stat-value" style="font-size:18px;margin-top:12px;font-family:'Outfit',sans-serif;font-weight:600">
-        <?= h($coach['growth_stage'] ?? 'Exploration') ?>
+      <div class="stat-label">Learning Points</div>
+      <div class="stat-value" style="font-size:32px;margin-top:4px">
+        <?= db_one("SELECT SUM(points_earned) FROM streak_user_progress WHERE user_id=?", [$user['id']]) ?: 0 ?>
       </div>
-      <div class="stat-sub">current growth phase</div>
+      <div class="stat-sub">total knowledge pts</div>
     </div>
   </div>
 
@@ -200,15 +219,23 @@ nav{padding:0;border-bottom:1px solid var(--border);background:rgba(7,7,15,0.95)
       <a href="/app.php" class="btn btn-ghost" style="width:100%;justify-content:center;border-radius:10px">Log today's mood in coach →</a>
     </div>
 
-    <!-- Life Intelligence Snapshot -->
-    <div class="card" id="intel-card">
-      <div class="card-title">Life Intelligence</div>
-      <div id="intel-content">
-        <div style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:20px">
-          Analyzing your emotional evolution and growth patterns...
+    <!-- Today's Learning -->
+    <div class="card" style="display:flex;flex-direction:column;justify-content:center">
+      <div class="card-title">Today's Learning</div>
+      <?php if ($todayArticle): ?>
+        <div style="margin-bottom:12px">
+            <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px"><?= h($todayArticle['category']) ?></div>
+            <div style="font-size:17px;font-weight:500;margin-bottom:8px"><?= h($todayArticle['title']) ?></div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:16px"><?= $todayArticle['read_at'] ? '✅ Read' : '📖 Ready to read' ?> · <?= $todayArticle['quiz_completed'] ? '✅ Quiz done' : '📝 Quiz pending' ?></div>
         </div>
-        <button onclick="fetchIntel()" class="btn btn-ghost" style="width:100%;justify-content:center;border-radius:10px">Refresh Analysis</button>
-      </div>
+        <a href="/rituals.php" class="btn btn-gold" style="width:100%;justify-content:center;border-radius:10px">Continue Learning</a>
+      <?php else: ?>
+        <div style="text-align:center;padding:20px 0">
+            <div style="font-size:24px;margin-bottom:8px">🎉</div>
+            <div style="font-size:14px;color:var(--muted)">All caught up! You've completed today's wellness lessons.</div>
+        </div>
+        <a href="/rituals.php" class="btn btn-ghost" style="width:100%;justify-content:center;border-radius:10px">Review Past Lessons</a>
+      <?php endif ?>
     </div>
   </div>
 

@@ -22,10 +22,14 @@ $plans = [
     'features' => [
       [true,  "Full access for 7 days"],
       [true,  '20 AI requests per day'],
-      [true,  'Personalized coach setup'],
-      [true,  'Mood tracking & chart'],
+      [true,  'Basic coach setup'],
+      [true,  'Daily check-ins'],
       [false, 'Persistent memory'],
       [false, 'Growth programs'],
+      [false, 'Streak milestones'],
+      [false, 'Live voice sessions'],
+      [false, 'Family sharing'],
+      [false, 'Recovery rituals'],
     ],
   ],
   'plus' => [
@@ -41,8 +45,12 @@ $plans = [
       [true,  '50 AI requests per day'],
       [true,  'Persistent memory (basic)'],
       [true,  'Full mood history'],
-      [true,  '1 growth program'],
+      [true,  'Daily rituals'],
+      [false, 'Growth programs'],
       [false, 'Streak milestones'],
+      [false, 'Live voice sessions'],
+      [false, 'Family sharing'],
+      [false, 'Recovery rituals'],
     ],
   ],
   'pro' => [
@@ -57,10 +65,12 @@ $plans = [
     'features' => [
       [true,  '200 AI requests per day'],
       [true,  'Persistent memory (advanced)'],
-      [true,  'All 4 growth programs'],
-      [true,  'Streak tracking & milestones'],
       [true,  'Session summaries & insights'],
+      [true,  'All growth programs (Learn)'],
+      [true,  'Streak tracking & milestones'],
       [false, 'Live voice sessions'],
+      [false, 'Family sharing'],
+      [false, 'Recovery rituals'],
     ],
   ],
   'premium' => [
@@ -73,12 +83,14 @@ $plans = [
     'href'  => is_logged_in() ? '/upgrade.php?plan=premium' : '/register.php?plan=premium',
     'style' => 'gold',
     'features' => [
-      [true, '500 AI requests per day'],
-      [true, 'Unlimited voice sessions'],
-      [true, 'Priority AI response speed'],
-      [true, 'Advanced mood analytics'],
-      [true, 'Family sharing (up to 3)'],
-      [true, 'Multiple coach profiles'],
+      [true,  '500 AI requests per day'],
+      [true,  'Persistent memory (advanced)'],
+      [true,  'All growth programs (Learn)'],
+      [true,  'Streak tracking & milestones'],
+      [true,  'Live voice sessions'],
+      [true,  'Family sharing (up to 4)'],
+      [true,  'Addiction recovery rituals'],
+      [true,  'Priority AI speed'],
     ],
   ],
 ];
@@ -109,7 +121,7 @@ nav{padding:18px 0;border-bottom:1px solid var(--border);background:rgba(8,8,16,
 .hero h1{font-family:'Cormorant Garamond',serif;font-size:clamp(36px,5vw,64px);font-weight:300;margin-bottom:16px}
 .hero h1 em{font-style:italic;color:var(--accent)}
 .hero p{color:rgba(240,237,232,0.5);font-size:17px;max-width:500px;margin:0 auto}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding-bottom:80px;align-items:start}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;padding-bottom:80px;align-items:start}
 .plan{background:#0e0e1a;border:1px solid var(--border);border-radius:24px;padding:34px 28px;position:relative;transition:all 0.3s}
 .plan:hover{transform:translateY(-4px)}
 .plan.featured{background:#131325;border-color:rgba(197,165,114,0.35);box-shadow:0 0 60px rgba(197,165,114,0.08)}

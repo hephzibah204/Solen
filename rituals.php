@@ -1,17 +1,12 @@
 <?php
 /**
- * /rituals.php — Phase 5/6: Daily Ritual System
- *
- * Interactive ritual completion UI with:
- *  - Morning / Evening / Weekly tabs
- *  - One-tap completion with optional note
- *  - Streak display
- *  - Mood capture per ritual
+ * /rituals.php — Phase 5/6: Daily Ritual System + Learning Hub
  */
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/retention.php';
+require_once __DIR__ . '/includes/addiction.php';
 require_login();
 
 $user      = current_user();
@@ -20,18 +15,45 @@ $firstName = explode(' ', $user['name'])[0];
 $site      = get_setting('site_name', 'Solen');
 $coach     = db_one("SELECT * FROM coach_profiles WHERE user_id=?", [$userId]);
 $coachName = $coach['coach_name'] ?? 'your coach';
+$hasRecovery = user_has_recovery_focus($coach ?? []);
 
-$hour    = (int)date('H');
-$defaultPeriod = $hour < 12 ? 'morning' : ($hour < 20 ? 'evening' : 'evening');
+$hour          = (int)date('H');
+$defaultPeriod = $hour < 12 ? 'morning' : 'evening';
 
-$streaks    = ritual_get_streak($userId);
-$todayStatus= ritual_get_today_status($userId);
+$streaks     = ritual_get_streak($userId);
+$todayStatus = ritual_get_today_status($userId);
 
 // All rituals by period with completion state
 $allRituals = [];
 foreach (RITUAL_PERIODS as $p) {
     $allRituals[$p] = ritual_get_for_user($userId, $p);
 }
+// Recovery rituals (if applicable)
+if ($hasRecovery) {
+    foreach (RECOVERY_RITUAL_DEFAULTS as $rPeriod => $rRituals) {
+        $today    = date('Y-m-d');
+        $doneKeys = array_column(
+            db_query("SELECT ritual_key FROM ritual_completions WHERE user_id=? AND date=? AND period=?", [$userId, $today, $rPeriod]),
+            'ritual_key'
+        );
+        foreach ($rRituals as $r) {
+            $allRituals[$rPeriod][] = array_merge($r, ['period'=>$rPeriod,'enabled'=>true,'completed'=>in_array($r['key'],$doneKeys,true)]);
+        }
+    }
+}
+
+// Today's article for learning tab
+$todayArticle = db_one(
+    "SELECT sa.* FROM streak_articles sa
+     LEFT JOIN streak_user_progress sp ON sp.article_id=sa.id AND sp.user_id=?
+     WHERE sp.id IS NULL OR sp.read_at IS NULL
+     ORDER BY (CASE WHEN sa.category=? THEN 0 ELSE 1 END), sa.id ASC LIMIT 1",
+    [$userId, $coach['purpose'] ?? 'wellness']
+);
+if (!$todayArticle) $todayArticle = db_one("SELECT * FROM streak_articles ORDER BY RANDOM() LIMIT 1");
+$articleQuizzes = $todayArticle ? db_query("SELECT id,question,options FROM streak_quizzes WHERE article_id=?", [(int)$todayArticle['id']]) : [];
+foreach ($articleQuizzes as &$q) $q['options'] = json_decode($q['options'], true); unset($q);
+$articleProgress = $todayArticle ? db_one("SELECT * FROM streak_user_progress WHERE user_id=? AND article_id=?", [$userId,(int)$todayArticle['id']]) : null;
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -70,10 +92,32 @@ nav{border-bottom:1px solid var(--border);background:rgba(7,7,15,0.95);position:
 .streak-badge .lbl{font-size:11px;color:var(--muted);line-height:1.4}
 
 /* Tabs */
-.tabs{display:flex;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:28px;width:fit-content}
-.tab{padding:8px 20px;border-radius:9px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--muted);transition:all 0.2s;font-family:'Outfit',sans-serif}
+.tabs{display:flex;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:28px;overflow-x:auto;width:100%;max-width:fit-content}
+.tab{padding:8px 16px;border-radius:9px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--muted);transition:all 0.2s;font-family:'Outfit',sans-serif;white-space:nowrap}
 .tab.active{background:rgba(255,255,255,0.08);color:var(--text)}
 .tab:hover:not(.active){color:var(--text)}
+
+/* Learning tab */
+.article-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px}
+.article-cat{display:inline-block;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);background:var(--accent2);border-radius:50px;padding:3px 10px;margin-bottom:12px}
+.article-title{font-family:'Playfair Display',serif;font-size:22px;font-weight:400;margin-bottom:8px}
+.article-meta{font-size:12px;color:var(--muted);margin-bottom:16px}
+.article-body{font-size:14.5px;line-height:1.85;color:rgba(242,237,232,0.85);white-space:pre-wrap}
+.quiz-section{margin-top:24px;border-top:1px solid var(--border);padding-top:20px}
+.quiz-q{font-size:15px;font-weight:500;margin-bottom:12px}
+.quiz-opts{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.quiz-opt{padding:11px 15px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;cursor:pointer;text-align:left;transition:all 0.2s}
+.quiz-opt:hover{border-color:var(--accent);background:var(--accent2)}
+.quiz-opt.selected{border-color:var(--accent);background:var(--accent2)}
+.quiz-opt.correct{border-color:var(--green);background:rgba(52,211,153,0.1);color:var(--green)}
+.quiz-opt.wrong{border-color:#ef4444;background:rgba(239,68,68,0.08);color:#ef4444}
+.quiz-result{padding:14px;border-radius:10px;font-size:14px;margin-top:12px}
+.quiz-result.pass{background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);color:var(--green)}
+.quiz-result.fail{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#ef4444}
+.points-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(251,146,60,0.12);border:1px solid rgba(251,146,60,0.25);color:#fb923c;padding:5px 12px;border-radius:50px;font-size:12px;font-weight:600}
+.read-btn{width:100%;margin-top:16px;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#1a1008;font-family:'Outfit',sans-serif;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.2s}
+.read-btn:hover{background:#d4ae82}
+.recovery-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:50px;padding:4px 12px;font-size:11px;color:#a5b4fc;margin-bottom:16px}
 
 /* Progress summary */
 .day-progress{display:flex;align-items:center;gap:14px;margin-bottom:28px;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:14px}
@@ -162,10 +206,14 @@ textarea.note-field::placeholder{color:var(--muted)}
   </div>
 
   <!-- Tabs -->
+  <?php if ($hasRecovery): ?>
+  <div class="recovery-badge">🛡️ Recovery Mode Active — <?= h(addiction_category_label($coach['addiction_focus'])) ?></div>
+  <?php endif ?>
   <div class="tabs" id="periodTabs">
     <?php foreach (['morning'=>'🌅 Morning','evening'=>'🌙 Evening','weekly'=>'📅 Weekly'] as $p => $label): ?>
     <button class="tab <?= $p === $defaultPeriod ? 'active' : '' ?>" onclick="switchPeriod('<?= $p ?>')"><?= $label ?></button>
     <?php endforeach ?>
+    <button class="tab" onclick="switchPeriod('learn')">📖 Learn</button>
   </div>
 
   <!-- Progress -->
@@ -221,6 +269,54 @@ textarea.note-field::placeholder{color:var(--muted)}
     <?php endforeach ?>
   </div>
   <?php endforeach ?>
+</div>
+
+<!-- Learning Tab -->
+<div class="ritual-list" id="period-learn" style="display:none;flex-direction:column">
+<?php if (!in_array($user['plan'], ['pro', 'premium'])): ?>
+  <div class="article-card" style="text-align:center;padding:40px 24px">
+    <div style="font-size:32px;margin-bottom:16px">📖</div>
+    <div class="article-title">Unlock the Learning Hub</div>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:24px;line-height:1.6">Upgrade to Solen Pro or Premium to access personalized wellness articles, quizzes, and earn learning points.</p>
+    <a href="/profile.php?tab=billing" class="read-btn" style="display:inline-block;width:auto;padding:12px 24px;text-decoration:none">View Upgrade Options</a>
+  </div>
+<?php elseif ($todayArticle): ?>
+  <div class="article-card" id="article-main">
+    <span class="article-cat"><?= h(ucfirst($todayArticle['category'])) ?></span>
+    <div class="article-title"><?= h($todayArticle['title']) ?></div>
+    <div class="article-meta">~<?= (int)$todayArticle['read_time_min'] ?> min read
+      <?php if ($articleProgress && $articleProgress['quiz_completed']): ?>
+        &nbsp;· <span class="points-badge">✓ <?= (int)$articleProgress['points_earned'] ?> pts earned</span>
+      <?php endif ?>
+    </div>
+    <div class="article-body" id="article-body"><?= h($todayArticle['content']) ?></div>
+    <?php if (!$articleProgress || !$articleProgress['read_at']): ?>
+    <button class="read-btn" onclick="markRead(<?= (int)$todayArticle['id'] ?>)">✓ I've read this</button>
+    <?php endif ?>
+  </div>
+
+  <?php if ($articleQuizzes && (!$articleProgress || !$articleProgress['quiz_completed'])): ?>
+  <div class="article-card" id="quiz-section">
+    <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);margin-bottom:14px">Quick Quiz — Test Your Understanding</div>
+    <?php foreach ($articleQuizzes as $qi => $quiz): ?>
+    <div class="quiz-q"><?= ($qi+1) ?>. <?= h($quiz['question']) ?></div>
+    <div class="quiz-opts" id="opts-<?= (int)$quiz['id'] ?>">
+      <?php foreach ($quiz['options'] as $oi => $opt): ?>
+      <button class="quiz-opt" data-qi="<?= (int)$quiz['id'] ?>" data-oi="<?= $oi ?>" onclick="selectQuizOpt(this,<?= (int)$quiz['id'] ?>,<?= $oi ?>)"><?= h($opt) ?></button>
+      <?php endforeach ?>
+    </div>
+    <?php endforeach ?>
+    <button class="read-btn" id="submit-quiz-btn" onclick="submitQuiz(<?= (int)$todayArticle['id'] ?>)" style="margin-top:8px" disabled>Submit Answers</button>
+    <div id="quiz-result" style="display:none"></div>
+  </div>
+  <?php elseif ($articleProgress && $articleProgress['quiz_completed']): ?>
+  <div class="article-card">
+    <div class="quiz-result pass">✓ Quiz completed — <?= (int)$articleProgress['quiz_score'] ?>% score · <?= (int)$articleProgress['points_earned'] ?> streak points earned</div>
+  </div>
+  <?php endif ?>
+<?php else: ?>
+  <div class="period-note">All articles read! Come back tomorrow for new content. 🎉</div>
+<?php endif ?>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -312,6 +408,90 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3400);
+}
+
+// ── Streak Learning JS ───────────────────────────────────────────────────
+
+let quizAnswers = {};
+
+async function markRead(articleId) {
+    try {
+        const res = await fetch('/api/retention.php?action=read_article', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ article_id: articleId }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            showToast('Knowledge absorbed! ✓');
+            const btn = document.querySelector('.read-btn');
+            if (btn && btn.textContent.includes('read')) {
+                btn.style.display = 'none';
+            }
+        }
+    } catch (e) {
+        showToast('Error marking as read.');
+    }
+}
+
+function selectQuizOpt(btn, quizId, optIndex) {
+    quizAnswers[quizId] = optIndex;
+    const parent = document.getElementById('opts-' + quizId);
+    parent.querySelectorAll('.quiz-opt').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+
+    // Enable submit button if all questions answered
+    const totalQs = document.querySelectorAll('.quiz-q').length;
+    if (Object.keys(quizAnswers).length === totalQs) {
+        document.getElementById('submit-quiz-btn').disabled = false;
+    }
+}
+
+async function submitQuiz(articleId) {
+    const btn = document.getElementById('submit-quiz-btn');
+    btn.disabled = true;
+    btn.textContent = 'Checking...';
+
+    const answers = Object.keys(quizAnswers).map(qid => ({
+        quiz_id: qid,
+        answer_index: quizAnswers[qid]
+    }));
+
+    try {
+        const res = await fetch('/api/retention.php?action=submit_quiz', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ article_id: articleId, answers }),
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+            // Reveal correct/wrong answers
+            data.explanations.forEach(exp => {
+                const parent = document.getElementById('opts-' + exp.quiz_id);
+                const selectedIdx = quizAnswers[exp.quiz_id];
+                const opts = parent.querySelectorAll('.quiz-opt');
+
+                opts.forEach((opt, idx) => {
+                    if (idx === exp.correct_index) opt.classList.add('correct');
+                    else if (idx === selectedIdx) opt.classList.add('wrong');
+                    opt.disabled = true;
+                });
+            });
+
+            const resultEl = document.getElementById('quiz-result');
+            resultEl.style.display = 'block';
+            resultEl.className = 'quiz-result ' + (data.score >= 50 ? 'pass' : 'fail');
+            resultEl.innerHTML = `<strong>Result: ${data.score}%</strong> (${data.correct}/${data.total} correct)<br>+${data.points} streak points earned!`;
+
+            showToast(`Quiz complete! +${data.points} pts`);
+            btn.style.display = 'none';
+        }
+    } catch (e) {
+        showToast('Error submitting quiz.');
+        btn.disabled = false;
+        btn.textContent = 'Submit Answers';
+    }
 }
 </script>
 <?php pwa_body(); ?>

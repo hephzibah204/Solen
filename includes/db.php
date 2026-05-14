@@ -67,7 +67,8 @@ function init_schema(PDO $pdo): void {
         plan        TEXT NOT NULL DEFAULT 'free',
         trial_ends  TEXT,
         created_at  TEXT DEFAULT (datetime('now')),
-        last_login  TEXT
+        last_login  TEXT,
+        last_ip     TEXT
     );
 
     CREATE TABLE IF NOT EXISTS subscriptions (
@@ -491,7 +492,222 @@ function run_migrations(PDO $pdo): void {
     // Phase 5 — Behavioral Retention System
     require_once __DIR__ . '/retention.php';
     retention_run_migrations($pdo);
+
+    // Phase 6 — Family Sharing, Addiction Recovery, Streak Learning
+    _run_phase6_migrations($pdo);
+
+    // New login alert IP tracking
+    try { $pdo->exec("ALTER TABLE users ADD COLUMN last_ip TEXT"); } catch (PDOException $e) {}
 }
+
+function _run_phase6_migrations(PDO $pdo): void {
+    // ── Family sharing ────────────────────────────────────────────────────
+    $pdo->exec("
+    CREATE TABLE IF NOT EXISTS family_groups (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name        TEXT    NOT NULL DEFAULT 'My Family',
+        invite_code TEXT    UNIQUE NOT NULL,
+        created_at  TEXT    DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_family_groups_owner ON family_groups(owner_id);
+
+    CREATE TABLE IF NOT EXISTS family_members (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id   INTEGER NOT NULL REFERENCES family_groups(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role       TEXT    NOT NULL DEFAULT 'member',
+        joined_at  TEXT    DEFAULT (datetime('now')),
+        UNIQUE(group_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_family_members_group ON family_members(group_id);
+    CREATE INDEX IF NOT EXISTS idx_family_members_user  ON family_members(user_id);
+    ");
+
+    // ── addiction_focus on coach_profiles ─────────────────────────────────
+    $cpCols = array_column($pdo->query("PRAGMA table_info(coach_profiles)")->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('addiction_focus', $cpCols)) {
+        $pdo->exec("ALTER TABLE coach_profiles ADD COLUMN addiction_focus TEXT DEFAULT ''");
+    }
+
+    // ── Streak Learning (articles + quizzes) ──────────────────────────────
+    $pdo->exec("
+    CREATE TABLE IF NOT EXISTS streak_articles (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        title        TEXT NOT NULL,
+        slug         TEXT UNIQUE NOT NULL,
+        category     TEXT NOT NULL DEFAULT 'wellness',
+        content      TEXT NOT NULL,
+        read_time_min INTEGER DEFAULT 3,
+        created_at   TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS streak_quizzes (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        article_id    INTEGER NOT NULL REFERENCES streak_articles(id) ON DELETE CASCADE,
+        question      TEXT NOT NULL,
+        options       TEXT NOT NULL DEFAULT '[]',
+        correct_index INTEGER NOT NULL DEFAULT 0,
+        explanation   TEXT DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS streak_user_progress (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        article_id      INTEGER NOT NULL REFERENCES streak_articles(id) ON DELETE CASCADE,
+        read_at         TEXT,
+        quiz_completed  INTEGER DEFAULT 0,
+        quiz_score      INTEGER DEFAULT 0,
+        points_earned   INTEGER DEFAULT 0,
+        created_at      TEXT DEFAULT (datetime('now')),
+        UNIQUE(user_id, article_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_streak_progress_user ON streak_user_progress(user_id);
+    ");
+
+    // ── Settings for Phase 6 ──────────────────────────────────────────────
+    $ins = $pdo->prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
+    $ins->execute(['family_max_members', '4']);
+    $ins->execute(['streak_learning_enabled', '1']);
+
+    // ── Seed articles if none exist ───────────────────────────────────────
+    $count = $pdo->query("SELECT COUNT(*) FROM streak_articles")->fetchColumn();
+    if ((int)$count === 0) {
+        _seed_streak_articles($pdo);
+    }
+}
+
+function _seed_streak_articles(PDO $pdo): void {
+    $articles = [
+        [
+            'wellness',
+            'The Science of Micro-Habits',
+            'micro-habits',
+            3,
+            "Small actions repeated daily are the foundation of lasting change. Research from University College London shows it takes an average of 66 days — not 21 — for a habit to become automatic. The key insight: the size of the habit doesn't determine how sticky it becomes. A 2-minute morning stretch and a 2-hour workout have similar habit-formation timelines. Start small. Stack new habits onto existing ones (habit stacking). Celebrate completion immediately to trigger dopamine.\n\nPractical steps:\n• Pick one habit under 2 minutes\n• Attach it to something you already do\n• Track it for 7 days before adding another",
+            [
+                ['What does research say is the average time to form a habit?', ['7 days', '21 days', '66 days', '90 days'], 2, '66 days is the average found by UCL research, though it varies by person and habit complexity.'],
+                ['What is "habit stacking"?', ['Doing many habits at once', 'Attaching a new habit to an existing one', 'Repeating a habit until it sticks', 'Tracking habits in a journal'], 1, 'Habit stacking links a new behaviour to an already-established one, using the existing routine as a cue.'],
+            ],
+        ],
+        [
+            'anxiety',
+            'Understanding Your Anxiety Response',
+            'understanding-anxiety',
+            4,
+            "Anxiety is your nervous system doing its job — sometimes too well. The amygdala, your brain's alarm centre, fires before the rational prefrontal cortex can evaluate the actual threat. This is why anxiety feels so physical: racing heart, shallow breath, tight chest. These are your body preparing to run or fight.\n\nThe problem is modern threats — deadlines, social pressure, uncertainty — don't resolve with sprinting. The energy stays trapped. Techniques like box breathing (4s inhale, 4s hold, 4s exhale, 4s hold) directly activate the parasympathetic nervous system, signalling safety.\n\nKey insight: you cannot think your way out of anxiety during a peak. You have to breathe or move first, then think.",
+            [
+                ['Which brain region triggers the anxiety alarm?', ['Prefrontal cortex', 'Hippocampus', 'Amygdala', 'Cerebellum'], 2, 'The amygdala is the brain\'s threat-detection centre and fires before rational thought can intervene.'],
+                ['What does box breathing do to the nervous system?', ['Increases adrenaline', 'Activates the fight-or-flight response', 'Activates the parasympathetic (calm) response', 'Shuts down the amygdala permanently'], 2, 'Box breathing stimulates the vagus nerve, activating the parasympathetic nervous system — the body\'s "rest and digest" mode.'],
+            ],
+        ],
+        [
+            'addiction',
+            'Understanding Cravings: The HALT Method',
+            'cravings-halt-method',
+            3,
+            "Cravings rarely appear from nowhere. Recovery specialists use the HALT acronym to identify the most common underlying triggers:\n\n• Hungry — low blood sugar affects mood and willpower\n• Angry — unprocessed frustration seeks release\n• Lonely — connection needs are powerful and often unconscious\n• Tired — fatigue depletes the prefrontal cortex's control\n\nWhen a craving hits, pause and ask: am I HALT right now? Addressing the root need often reduces the craving's intensity significantly. Eat something. Process the anger with writing or movement. Reach out to one safe person. Rest.\n\nCravings are time-limited — most peak within 15–30 minutes and then subside if not acted on.",
+            [
+                ['What does HALT stand for?', ['Happy, Anxious, Lost, Tired', 'Hungry, Angry, Lonely, Tired', 'Hopeless, Angry, Longing, Triggered', 'Hungry, Aware, Lonely, Tense'], 1, 'HALT is a recovery tool: Hungry, Angry, Lonely, Tired — the four most common craving triggers.'],
+                ['How long do most cravings peak for if not acted on?', ['2–5 minutes', '1 hour', '15–30 minutes', 'Several hours'], 2, 'Most cravings peak within 15–30 minutes and subside naturally — the urge-surfing technique uses this.'],
+            ],
+        ],
+        [
+            'sleep',
+            'Why Sleep Is Your Emotional Reset Button',
+            'sleep-emotional-reset',
+            3,
+            "During REM sleep, your brain replays emotional memories but strips away the stress response — a process called emotional memory reconsolidation. This is why things that feel catastrophic at 2am seem manageable in the morning.\n\nSleep deprivation amplifies amygdala reactivity by up to 60% (Walker, 2017). This means poor sleep makes you more reactive, more anxious, and less able to regulate mood.\n\nCircadian rhythm tips:\n• Same sleep/wake time every day (even weekends)\n• No screens 30 minutes before bed\n• Keep the bedroom cool (65–68°F / 18–20°C)\n• Avoid caffeine after 2pm",
+            [
+                ['By how much can sleep deprivation amplify amygdala reactivity?', ['10%', '30%', '60%', '100%'], 2, 'Matthew Walker\'s research found sleep deprivation increases amygdala reactivity by up to 60%, making emotional regulation much harder.'],
+                ['What sleep process strips stress from emotional memories?', ['Deep sleep compression', 'REM emotional reconsolidation', 'Sleep spindle processing', 'Cortisol flushing'], 1, 'REM sleep replays emotional memories while removing the associated stress response, which is why morning perspectives differ from nighttime ones.'],
+            ],
+        ],
+        [
+            'wellness',
+            'The Power of Daily Reflection',
+            'daily-reflection',
+            3,
+            "Journaling and daily reflection are among the most evidence-backed wellness practices. In studies by James Pennebaker, writing about difficult experiences for just 15 minutes a day over 4 days reduced anxiety, improved immune function, and increased subjective wellbeing.\n\nReflection works by converting raw experience into narrative — your brain can then file it as 'processed' rather than holding it on alert. It also builds self-awareness, which is the foundation of emotional intelligence.\n\nYou don't need to write perfectly. Three prompts:\n• What happened today?\n• How did I feel?\n• What would I do differently?",
+            [
+                ['What did Pennebaker\'s research find about expressive writing?', ['It increased anxiety', 'It improved immune function and wellbeing', 'It had no measurable effect', 'It only helped people with depression'], 1, 'Pennebaker\'s studies found that writing about difficult experiences reduced anxiety and improved immune markers after just 4 days.'],
+                ['Why does writing about experience help the brain?', ['It distracts from problems', 'It converts raw experience into processed narrative', 'It strengthens memory', 'It reduces cortisol directly'], 1, 'Narrative processing signals to the brain that an experience has been addressed, reducing the ongoing vigilance response.'],
+            ],
+        ],
+        [
+            'growth',
+            'Fixed vs Growth Mindset in Recovery & Wellness',
+            'fixed-vs-growth-mindset',
+            4,
+            "Carol Dweck's research on mindset has profound implications for wellness. A fixed mindset says: 'I'm either this way or I'm not.' A growth mindset says: 'I can develop through effort and learning.'\n\nIn recovery contexts, fixed mindset sounds like: 'I always fail, I'm just an addict.' Growth mindset sounds like: 'This was a difficult moment. What can I learn from it?'\n\nFixed mindset makes setbacks feel permanent and personal. Growth mindset treats them as information. This single shift has been shown to improve resilience, persistence, and recovery outcomes.\n\nPractice: Next time something goes wrong, ask 'What is this teaching me?' instead of 'What does this say about me?'",
+            [
+                ['What is the core difference between fixed and growth mindset?', ['Intelligence vs emotion', 'Belief that abilities are static vs developable', 'Optimism vs pessimism', 'External vs internal focus'], 1, 'Fixed mindset believes abilities are innate and static. Growth mindset believes they can be developed through effort.'],
+                ['How should a growth mindset frame a setback?', ['As proof of failure', 'As permanent and personal', 'As information to learn from', 'As someone else\'s fault'], 2, 'A growth mindset treats setbacks as learning data, not as evidence of being fundamentally flawed.'],
+            ],
+        ],
+        [
+            'relationships',
+            'Healthy Boundaries: What They Actually Are',
+            'healthy-boundaries',
+            3,
+            "Boundaries are not walls — they're guidelines about what you need to feel safe and respected. They're communicated, not enforced silently and then resented.\n\nA common misconception: boundaries control others. They don't. Boundaries define your response: 'If X happens, I will do Y.' You can't control whether someone respects your boundary, but you can control your response when they don't.\n\nTypes of boundaries:\n• Physical (personal space, touch)\n• Emotional (what you share, with whom, when)\n• Time (availability, commitments)\n• Digital (response times, sharing)\n\nHealthy boundary formula: 'When [X happens], I feel [Y], and I need [Z].'",
+            [
+                ['What is the most common misconception about boundaries?', ['That they are rude', 'That they control other people\'s behaviour', 'That they require confrontation', 'That they only apply to strangers'], 1, 'Boundaries define your own response, not someone else\'s behaviour — you cannot control whether someone respects them.'],
+                ['Complete the healthy boundary formula: "When X happens, I feel Y, and..."', ['...you should stop.', '...I need Z.', '...that\'s not okay.', '...we have a problem.'], 1, '"When [X], I feel [Y], and I need [Z]" is a non-blaming formula that expresses needs clearly.'],
+            ],
+        ],
+        [
+            'anxiety',
+            'Grounding Techniques That Actually Work',
+            'grounding-techniques',
+            3,
+            "Grounding brings you from anxious future-thinking back to the present moment. These techniques work because anxiety lives in the future; your senses only exist now.\n\n5-4-3-2-1 Technique:\n• 5 things you can see\n• 4 things you can physically feel\n• 3 things you can hear\n• 2 things you can smell\n• 1 thing you can taste\n\nPhysical grounding:\n• Hold ice (intense sensation overrides anxiety)\n• Splash cold water on your face\n• Press feet firmly into the ground, feel the pressure\n\nCognitive grounding:\n• Name 5 things in your favourite colour\n• Count backwards from 100 by 7s\n• Recite song lyrics you know well",
+            [
+                ['Why does the 5-4-3-2-1 technique work for anxiety?', ['It distracts the mind', 'Anxiety lives in the future; sensory input exists only in the present', 'It reduces cortisol chemically', 'It activates the fight-or-flight response'], 1, 'Engaging the senses forces present-moment awareness, which interrupts the future-oriented thought loop of anxiety.'],
+                ['Which physical grounding technique uses intense sensation to override anxiety?', ['Deep breathing', 'Holding ice', 'Meditation', 'Yoga'], 1, 'The intense cold sensation of holding ice is so strong it redirects the nervous system\'s attention, reducing anxiety acutely.'],
+            ],
+        ],
+        [
+            'wellness',
+            'Movement as Medicine for Mental Health',
+            'movement-mental-health',
+            4,
+            "Exercise is one of the most evidence-backed mental health interventions available. A meta-analysis of 1,039 trials (Singh et al., 2023) found exercise was more effective than medication or therapy for depression and anxiety in the short term.\n\nWhy it works:\n• BDNF (brain-derived neurotrophic factor) — exercise increases this 'miracle-gro for the brain', promoting neuroplasticity\n• Endocannabinoids — these (not endorphins) cause the runner's high\n• Stress hormone regulation — physical exertion burns off cortisol and adrenaline\n• Sleep quality improvement — tires the body naturally\n\nYou don't need a gym. 20 minutes of brisk walking 3x per week produces measurable mood benefits within 2 weeks.",
+            [
+                ['What brain chemical does exercise increase, supporting neuroplasticity?', ['Serotonin', 'Dopamine', 'BDNF', 'Melatonin'], 2, 'BDNF (Brain-Derived Neurotrophic Factor) is increased by exercise and promotes the growth of new neural connections.'],
+                ['How much walking produces measurable mood benefits within 2 weeks?', ['5 minutes daily', '1 hour daily', '20 minutes 3x per week', '45 minutes every day'], 2, 'Research shows 20 minutes of brisk walking 3 times per week is sufficient to produce measurable mood improvements.'],
+            ],
+        ],
+        [
+            'addiction',
+            'The Reward Circuit: Why Habits Feel Compulsive',
+            'reward-circuit-habits',
+            4,
+            "All addictions share a common mechanism: the brain's dopamine reward circuit. Dopamine isn't the pleasure chemical — it's the anticipation and wanting chemical. It fires in response to cues that predict reward, not the reward itself.\n\nThis is why:\n• Seeing a wine bottle triggers craving before any sip\n• Opening Instagram produces anticipation before any scroll\n• Walking past a casino feels magnetic even years into recovery\n\nThe circuit learns cues through repetition. Recovery involves building new associations — new cues that trigger healthy reward pathways. This takes time because the original pathways don't disappear; they're just gradually overwritten by stronger new ones.\n\nEvery day you choose differently, you're literally rewiring your brain.",
+            [
+                ['What does dopamine actually signal in the brain?', ['Pleasure and satisfaction', 'Anticipation and wanting', 'Safety and calm', 'Memory formation'], 1, 'Dopamine is the anticipation chemical — it fires in response to cues that predict reward, driving the seeking behaviour.'],
+                ['What happens to old addiction pathways in recovery?', ['They are permanently deleted', 'They are gradually overwritten by stronger new pathways', 'They remain unchanged forever', 'They shrink after 30 days'], 1, 'Old neural pathways don\'t disappear — recovery works by building stronger new pathways that gradually take precedence.'],
+            ],
+        ],
+    ];
+
+    $artStmt  = $pdo->prepare("INSERT OR IGNORE INTO streak_articles (category, title, slug, read_time_min, content) VALUES (?,?,?,?,?)");
+    $quizStmt = $pdo->prepare("INSERT INTO streak_quizzes (article_id, question, options, correct_index, explanation) VALUES (?,?,?,?,?)");
+
+    foreach ($articles as [$cat, $title, $slug, $readTime, $content, $quizzes]) {
+        $artStmt->execute([$cat, $title, $slug, $readTime, $content]);
+        $artId = $pdo->lastInsertId();
+        if (!$artId) {
+            $row   = $pdo->prepare("SELECT id FROM streak_articles WHERE slug=?");
+            $row->execute([$slug]);
+            $artId = $row->fetchColumn();
+        }
+        foreach ($quizzes as [$question, $options, $correctIdx, $explanation]) {
+            $quizStmt->execute([$artId, $question, json_encode($options), $correctIdx, $explanation]);
+        }
+    }
+}
+
 
 /**
  * Perform a ranked Full-Text Search using FTS5.

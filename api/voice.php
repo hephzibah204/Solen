@@ -54,6 +54,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'config') {
         exit;
     }
 
+    if ($user['plan'] !== 'premium' && $user['role'] !== 'admin') {
+        http_response_code(403);
+        echo json_encode(['error' => 'Live Voice sessions are a Premium feature. Please upgrade to access this feature.']);
+        exit;
+    }
+
+
     $mode    = preg_replace('/[^a-z_]/', '', $_GET['mode'] ?? VOICE_MODE_DEFAULT);
     $profile = db_one("SELECT * FROM coach_profiles WHERE user_id=?", [$userId]);
 

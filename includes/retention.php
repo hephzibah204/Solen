@@ -31,6 +31,7 @@
  *   reminder_process_due(): int
  *   reminder_get_next(int $userId): ?array
  */
+require_once __DIR__ . '/addiction.php';
 
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -155,6 +156,15 @@ function ritual_get_for_user(int $userId, string $period = 'morning'): array
     if (!in_array($period, RITUAL_PERIODS, true)) $period = 'morning';
 
     $defaults = RITUAL_DEFAULTS[$period] ?? [];
+    
+    // Add recovery rituals if applicable
+    $user = db_one("SELECT plan FROM users WHERE id=?", [$userId]);
+    $profile = db_one("SELECT addiction_focus FROM coach_profiles WHERE user_id=?", [$userId]);
+    if ($user && $user['plan'] === 'premium' && $profile && !empty($profile['addiction_focus'])) {
+        $recDefaults = RECOVERY_RITUAL_DEFAULTS[$period] ?? [];
+        $defaults = array_merge($defaults, $recDefaults);
+    }
+
     $today    = date('Y-m-d');
 
     // Completed today
@@ -616,6 +626,9 @@ function _ritual_maybe_award_milestone(int $userId): void
 
 function _milestone_award(int $userId, string $type, string $title, string $desc, float $value = 0): void
 {
+    $user = db_one("SELECT plan FROM users WHERE id=?", [$userId]);
+    if (!$user || !in_array($user['plan'], ['pro', 'premium'])) return;
+
     $today = date('Y-m-d');
     // Don't duplicate same type+title on same day
     $exists = db_query(

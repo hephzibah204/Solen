@@ -7,7 +7,8 @@
  * get_emotional_nudge($userId) → string|null
  * build_emotional_scores($userId) → array
  */
-
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/addiction.php';
 // ── PROMPT CONSTANTS ──────────────────────────────────────────────────────
 
 const SOLEN_PURPOSE_PROMPTS = [
@@ -89,6 +90,13 @@ function build_system_prompt(array $profile, array $memory = [], string $emotion
     // Emotional state modifier (Phase 2)
     if ($emotionalState && isset(SOLEN_EMOTIONAL_TONE_MODS[$emotionalState])) {
         $parts[] = SOLEN_EMOTIONAL_TONE_MODS[$emotionalState];
+    }
+
+    // Addiction Recovery focus (Phase 6)
+    if (!empty($profile['addiction_focus'])) {
+        $parts[] = RECOVERY_PROMPT_MOD;
+        $category = addiction_category_label($profile['addiction_focus']);
+        $parts[] = "The user has specifically requested support for recovery from: {$category}.";
     }
 
     // Phase 10: Relationship & Personality Evolution

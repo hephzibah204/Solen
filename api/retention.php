@@ -176,6 +176,105 @@ try {
             echo json_encode(['ok' => true]);
             break;
 
+        // ── Streak Learning ───────────────────────────────────────────────────
+
+        case 'today_article':
+            if (!in_array($user['plan'] ?? 'free', ['pro', 'premium'])) {
+                http_response_code(403); echo json_encode(['error' => 'Growth programs are restricted to Pro and Premium plans']); break;
+            }
+            // Pick today's article: category matches user's coach purpose, not yet read
+            $profile  = db_one("SELECT purpose, addiction_focus FROM coach_profiles WHERE user_id=?", [$userId]);
+            $category = $profile['purpose'] ?? 'wellness';
+            // If user has addiction focus, rotate to addiction articles
+            if (!empty($profile['addiction_focus'])) {
+                $hour = (int)date('H');
+                if ($hour % 2 === 0) $category = 'addiction';
+            }
+
+            $article = db_one(
+                "SELECT sa.* FROM streak_articles sa
+                 LEFT JOIN streak_user_progress sp ON sp.article_id=sa.id AND sp.user_id=?
+                 WHERE sa.category=? AND (sp.id IS NULL OR sp.read_at IS NULL)
+                 ORDER BY sa.id ASC LIMIT 1",
+                [$userId, $category]
+            );
+            // Fallback: any unread article
+            if (!$article) {
+                $article = db_one(
+                    "SELECT sa.* FROM streak_articles sa
+                     LEFT JOIN streak_user_progress sp ON sp.article_id=sa.id AND sp.user_id=?
+                     WHERE sp.id IS NULL OR sp.read_at IS NULL
+                     ORDER BY RANDOM() LIMIT 1",
+                    [$userId]
+                );
+            }
+            if (!$article) {
+                // All read — reset and start over
+                $article = db_one("SELECT * FROM streak_articles ORDER BY RANDOM() LIMIT 1");
+            }
+            $quizzes = $article ? db_query("SELECT id, question, options FROM streak_quizzes WHERE article_id=?", [(int)$article['id']]) : [];
+            // Decode options
+            foreach ($quizzes as &$q) $q['options'] = json_decode($q['options'], true);
+            unset($q);
+            $progress = $article ? db_one("SELECT * FROM streak_user_progress WHERE user_id=? AND article_id=?", [$userId, (int)$article['id']]) : null;
+            echo json_encode(['ok' => true, 'article' => $article, 'quizzes' => $quizzes, 'progress' => $progress]);
+            break;
+
+        case 'read_article':
+            if (!in_array($user['plan'] ?? 'free', ['pro', 'premium'])) {
+                http_response_code(403); echo json_encode(['error' => 'Access denied']); break;
+            }
+            $articleId = (int)($body['article_id'] ?? 0);
+            if (!$articleId) { http_response_code(400); echo json_encode(['error' => 'article_id required']); break; }
+            db_run(
+                "INSERT INTO streak_user_progress (user_id, article_id, read_at) VALUES (?,?,datetime('now'))
+                 ON CONFLICT(user_id,article_id) DO UPDATE SET read_at=excluded.read_at",
+                [$userId, $articleId]
+            );
+            echo json_encode(['ok' => true]);
+            break;
+
+        case 'submit_quiz':
+            if (!in_array($user['plan'] ?? 'free', ['pro', 'premium'])) {
+                http_response_code(403); echo json_encode(['error' => 'Access denied']); break;
+            }
+            $articleId = (int)($body['article_id'] ?? 0);
+            $answers   = $body['answers'] ?? []; // [{quiz_id: X, answer_index: Y}, ...]
+            if (!$articleId || !$answers) { http_response_code(400); echo json_encode(['error' => 'article_id and answers required']); break; }
+
+            $quizzes = db_query("SELECT * FROM streak_quizzes WHERE article_id=?", [$articleId]);
+            $correct = 0;
+            foreach ($quizzes as $quiz) {
+                foreach ($answers as $a) {
+                    if ((int)$a['quiz_id'] === (int)$quiz['id'] && (int)$a['answer_index'] === (int)$quiz['correct_index']) {
+                        $correct++;
+                    }
+                }
+            }
+            $total    = count($quizzes);
+            $score    = $total > 0 ? round(($correct / $total) * 100) : 0;
+            $points   = $score >= 80 ? 10 : ($score >= 50 ? 5 : 2);
+
+            db_run(
+                "INSERT INTO streak_user_progress (user_id, article_id, quiz_completed, quiz_score, points_earned, read_at)
+                 VALUES (?,?,1,?,?,datetime('now'))
+                 ON CONFLICT(user_id,article_id) DO UPDATE SET quiz_completed=1, quiz_score=excluded.quiz_score, points_earned=excluded.points_earned",
+                [$userId, $articleId, $score, $points]
+            );
+
+            // Build explanation array
+            $explanations = [];
+            foreach ($quizzes as $quiz) {
+                $explanations[] = [
+                    'quiz_id'       => (int)$quiz['id'],
+                    'correct_index' => (int)$quiz['correct_index'],
+                    'explanation'   => $quiz['explanation'],
+                ];
+            }
+
+            echo json_encode(['ok' => true, 'score' => $score, 'correct' => $correct, 'total' => $total, 'points' => $points, 'explanations' => $explanations]);
+            break;
+
         default:
             http_response_code(404);
             echo json_encode(['error' => 'Unknown action: ' . htmlspecialchars($action)]);

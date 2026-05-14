@@ -409,113 +409,104 @@ function useGeminiLive(profile, systemPrompt, messages, setMessages, setEmotStat
   useEffect(() => {
     msgsRef.current = messages;
   }, [messages]);
+  const intentionalEndRef = useRef(false);
   const startCall = async () => {
     setIsCalling(true);
     setCallStatus("connecting");
+    intentionalEndRef.current = false;
     try {
-      const res = await fetch('/api/gemini_token.php');
-      const data = await res.json();
-      if (!data.key) throw new Error("No API key");
+      const tokenRes = await fetch('/api/gemini_token.php', { credentials: 'same-origin' });
+      if (!tokenRes.ok) {
+        const errData = await tokenRes.json().catch(() => ({}));
+        throw new Error(errData.error || 'Session expired — please refresh the page');
+      }
+      const data = await tokenRes.json();
+      if (!data.key) throw new Error(data.error || 'No API key returned');
+      // Use model from server setting, not a hardcoded string
+      const liveModel = data.model || 'gemini-2.0-flash-live-001';
       const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${data.key}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       ws.onopen = () => {
-        setCallStatus("connected");
+        setCallStatus('connected');
         ws.send(JSON.stringify({
           setup: {
-            model: "models/gemini-2.0-flash-live-001",
-            systemInstruction: {
-              parts: [{
-                text: systemPrompt
-              }]
-            }
+            model: `models/${liveModel}`,
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: { responseModalities: ['AUDIO'] }
           }
         }));
         audioRef.current = new AudioPlaybackManager();
         micRef.current = new MicManager(ws);
         micRef.current.start();
-
-        // Add optimistic system message
-        setMessages(p => [...p, {
-          role: "assistant",
-          content: "Call connected. I'm listening..."
-        }]);
+        setMessages(p => [...p, { role: 'assistant', content: "📞 Call connected. I'm listening — speak naturally." }]);
       };
-      let currentAiMsg = "";
+      let currentAiMsg = '';
       ws.onmessage = e => {
-        const msg = JSON.parse(e.data);
-        if (msg.serverContent) {
-          const content = msg.serverContent;
-          if (content.modelTurn?.parts) {
-            content.modelTurn.parts.forEach(p => {
-              if (p.inlineData?.mimeType.startsWith('audio/pcm')) {
-                audioRef.current?.playPCM(p.inlineData.data);
-              }
-              if (p.text) currentAiMsg += p.text;
-            });
-          }
-          if (content.turnComplete) {
-            if (currentAiMsg) {
-              const arr = [...msgsRef.current];
-              if (arr[arr.length - 1]?.content === "Call connected. I'm listening...") arr.pop();
-              const nextMsgs = [...arr, {
-                role: "assistant",
-                content: currentAiMsg
-              }];
-              setMessages(nextMsgs);
-              apiData("save_session", {
-                messages: nextMsgs
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.serverContent) {
+            const content = msg.serverContent;
+            if (content.modelTurn?.parts) {
+              content.modelTurn.parts.forEach(p => {
+                if (p.inlineData?.mimeType?.startsWith('audio/pcm')) {
+                  audioRef.current?.playPCM(p.inlineData.data);
+                }
+                if (p.text) currentAiMsg += p.text;
               });
-              currentAiMsg = "";
+            }
+            if (content.turnComplete && currentAiMsg) {
+              const arr = [...msgsRef.current];
+              if (arr[arr.length - 1]?.content?.startsWith('📞 Call connected')) arr.pop();
+              const nextMsgs = [...arr, { role: 'assistant', content: currentAiMsg }];
+              setMessages(nextMsgs);
+              apiData('save_session', { messages: nextMsgs });
+              currentAiMsg = '';
+            }
+            if (content.interrupted) currentAiMsg = '';
+            if (content.inputTranscription?.text) {
+              const arr = [...msgsRef.current];
+              if (arr[arr.length - 1]?.content?.startsWith('📞 Call connected')) arr.pop();
+              const nextMsgs = [...arr, { role: 'user', content: content.inputTranscription.text }];
+              setMessages(nextMsgs);
+              apiData('save_session', { messages: nextMsgs });
             }
           }
-          if (content.interrupted) {
-            currentAiMsg = "";
-          }
-          if (content.inputTranscription && content.inputTranscription.text) {
-            const arr = [...msgsRef.current];
-            if (arr[arr.length - 1]?.content === "Call connected. I'm listening...") arr.pop();
-            const nextMsgs = [...arr, {
-              role: "user",
-              content: content.inputTranscription.text
-            }];
-            setMessages(nextMsgs);
-            apiData("save_session", {
-              messages: nextMsgs
-            });
-          }
+          // Gemini setup_complete signal
+          if (msg.setupComplete) setCallStatus('connected');
+        } catch(parseErr) { console.warn('WS parse error', parseErr); }
+      };
+      ws.onerror = (ev) => {
+        console.error('WebSocket error', ev);
+        setCallStatus('error');
+      };
+      ws.onclose = (ev) => {
+        if (!intentionalEndRef.current) {
+          // Unexpected drop — show message, don't silently reset
+          setCallStatus('disconnected');
+          setMessages(p => [...p, { role: 'assistant', content: `⚠️ Call disconnected (code ${ev.code}). Tap Call to reconnect.` }]);
         }
-      };
-      ws.onerror = () => {
-        setCallStatus("error");
-        endCall();
-      };
-      ws.onclose = () => {
-        setCallStatus("disconnected");
-        endCall();
+        setIsCalling(false);
+        if (micRef.current) micRef.current.stop();
+        if (audioRef.current) audioRef.current.stop();
+        wsRef.current = null;
       };
     } catch (err) {
-      console.error(err);
-      setCallStatus("error");
+      console.error('Call error:', err);
+      setMessages(p => [...p, { role: 'assistant', content: `⚠️ Could not start call: ${err.message}` }]);
+      setCallStatus('error');
       setIsCalling(false);
     }
   };
   const endCall = () => {
+    intentionalEndRef.current = true;
     setIsCalling(false);
-    setCallStatus("disconnected");
-    if (micRef.current) micRef.current.stop();
-    if (audioRef.current) audioRef.current.stop();
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
+    setCallStatus('disconnected');
+    if (micRef.current) { micRef.current.stop(); micRef.current = null; }
+    if (audioRef.current) { audioRef.current.stop(); audioRef.current = null; }
+    if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
   };
-  return {
-    isCalling,
-    callStatus,
-    startCall,
-    endCall
-  };
+  return { isCalling, callStatus, startCall, endCall };
 }
 const EmotionalHeartbeat = ({
   state,
