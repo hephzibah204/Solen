@@ -44,9 +44,9 @@ admin_head('Settings'); admin_sidebar('settings');
     <!-- Tab nav -->
     <div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0">
       <?php
-      $tabs = ['general'=>'General','plans'=>'Plans & Pricing','email'=>'Email / SMTP','ai'=>'AI Providers','payments'=>'Payments','integrations'=>'Integrations','memory'=>'Memory','voice'=>'Voice','retention'=>'Retention','seo'=>'SEO','danger'=>'Danger Zone'];
+      $tabs = ['general'=>'General','plans'=>'Plans & Pricing','email'=>'Email / SMTP','ai'=>'AI Providers','payments'=>'Payments','integrations'=>'Integrations','pwa'=>'PWA Push','memory'=>'Memory','voice'=>'Voice','retention'=>'Retention','seo'=>'SEO','danger'=>'Danger Zone'];
       foreach ($tabs as $key => $label):
-      ?>
+?>
         <a href="?tab=<?= $key ?>" style="padding:10px 18px;border-radius:8px 8px 0 0;font-size:13px;border:1px solid <?= $tab===$key?'var(--border)':'transparent' ?>;border-bottom:1px solid <?= $tab===$key?'var(--card)':'transparent' ?>;background:<?= $tab===$key?'var(--card)':'transparent' ?>;color:<?= $tab===$key?'var(--text)':'var(--muted)' ?>;margin-bottom:-1px"><?= $label ?></a>
       <?php endforeach ?>
     </div>
@@ -236,6 +236,33 @@ admin_head('Settings'); admin_sidebar('settings');
               <label>Custom Head Scripts <span class="text-muted">(injected into &lt;head&gt; on all pages)</span></label>
               <textarea class="form-control" name="custom_head_scripts" rows="4" style="font-family:monospace;font-size:12px"><?= $s('custom_head_scripts') ?></textarea>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <?php elseif ($tab === 'pwa'): ?>
+      <div style="display:flex;flex-direction:column;gap:16px;max-width:700px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">PWA Push Notifications</div></div>
+          <div class="form-group" style="margin-bottom:20px">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+              <input type="checkbox" name="push_enabled" value="1" <?= $s('push_enabled')==='1'?'checked':'' ?>>
+              Enable Web Push Notifications
+            </label>
+          </div>
+          <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1">
+              <label>VAPID Public Key</label>
+              <input class="form-control" name="vapid_public_key" value="<?= $s('vapid_public_key') ?>" placeholder="Generated via web-push generate-vapid-keys"/>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>VAPID Private Key</label>
+              <input class="form-control" type="password" name="vapid_private_key" value="<?= $s('vapid_private_key') ?>"/>
+            </div>
+          </div>
+          <div style="margin-top:20px;padding:14px;background:var(--bg2);border-radius:10px;font-size:13px;color:var(--muted)">
+            💡 You need a VAPID key pair to send push notifications. You can generate them using the <code>web-push</code> NPM package or an online generator. 
+            The Public Key will be shared with the browser, while the Private Key stays secure on the server.
           </div>
         </div>
       </div>

@@ -146,14 +146,16 @@ function pwa_body(): void { ?>
         <img src="/assets/icon-192.png" alt="" onerror="this.parentElement.innerHTML='🌿'">
       </div>
       <div class="pwa-info">
-        <div class="pwa-title">Add Solen to Home Screen</div>
-        <div class="pwa-sub">Your coach, always one tap away — works offline too.</div>
+        <div class="pwa-title">Get the Solen Mobile App</div>
+        <div class="pwa-sub" id="pwa-platform-text">Download Solen for Android or iOS to get daily check-ins and offline support.</div>
+        <div id="pwa-push-status" style="font-size:10px;color:#86efac;margin-top:5px;display:none">✓ Notifications enabled</div>
       </div>
       <button class="pwa-x" id="pwa-x" aria-label="Dismiss">×</button>
     </div>
     <div class="pwa-btns" id="pwa-native">
-      <button class="pwa-btn-yes" id="pwa-yes">📲 Install App</button>
-      <button class="pwa-btn-no"  id="pwa-no">Not now</button>
+      <button class="pwa-btn-yes" id="pwa-yes">📲 Install Mobile App</button>
+      <button class="pwa-btn-yes" id="pwa-push" style="display:none;background:#22c55e;color:#fff">🔔 Enable Notifications</button>
+      <button class="pwa-btn-no"  id="pwa-no">Maybe later</button>
     </div>
     <div id="pwa-ios-hint">
       Tap&nbsp;<strong>📤 Share</strong>&nbsp;then&nbsp;<strong>"Add to Home Screen"</strong>&nbsp;to install Solen
@@ -209,9 +211,13 @@ if ('serviceWorker' in navigator) {
   var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
   var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   if (isIOS && isSafari) {
+    document.getElementById('pwa-platform-text').textContent = 'Install the Solen iOS app for your personal daily coaching journey.';
     native.style.display = 'none';
     iosHint.style.display = 'block';
     setTimeout(show, 4000);
+  } else {
+    // On Android/Chrome, we'll update the text too
+    document.getElementById('pwa-platform-text').textContent = 'Download the Solen Android app for a seamless wellness experience.';
   }
 
   /* Install click */
@@ -228,9 +234,48 @@ if ('serviceWorker' in navigator) {
   btnNo && btnNo.addEventListener('click', function() { hide(true); });
   btnX  && btnX.addEventListener('click',  function() { hide(true); });
 
+  /* Push Subscription logic */
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+    return outputArray;
+  }
+
+  function subscribeUser() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    navigator.serviceWorker.ready.then(function(reg) {
+      const vapidPublic = '<?= get_setting("vapid_public_key", "") ?>';
+      if (!vapidPublic) return;
+      reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublic)
+      }).then(function(sub) {
+        fetch('/api/push_subscribe.php', {
+          method: 'POST',
+          body: JSON.stringify(sub),
+          headers: { 'Content-Type': 'application/json' }
+        }).then(() => {
+          document.getElementById('pwa-push-status').style.display = 'block';
+          document.getElementById('pwa-push').style.display = 'none';
+          setTimeout(() => hide(true), 2000);
+        });
+      }).catch(err => console.warn('Push subscription failed:', err));
+    });
+  }
+
+  const btnPush = document.getElementById('pwa-push');
+  if (btnPush && 'Notification' in window && Notification.permission !== 'granted') {
+    btnPush.style.display = 'block';
+    btnPush.onclick = subscribeUser;
+  }
+
   /* After install */
   window.addEventListener('appinstalled', function() {
-    hide(true);
+    hide(false);
+    if (btnPush && Notification.permission !== 'granted') show(); // show again to offer push
     console.log('[PWA] Installed!');
   });
 })();

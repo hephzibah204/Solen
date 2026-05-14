@@ -84,6 +84,28 @@ if ($action === 'ai_generate') {
     exit;
 }
 
+if ($action === 'ai_social_pack') {
+    require_once dirname(__DIR__) . '/providers/router.php';
+    $id = (int)($_POST['id'] ?? 0);
+    $post = db_one("SELECT * FROM blog_posts WHERE id=?", [$id]);
+    if (!$post) { header('Content-Type: application/json'); echo json_encode(['error' => 'Post not found']); exit; }
+
+    $system = "You are a social media growth expert. Generate a 'Social Pack' for this blog post.
+               Output valid JSON with keys:
+               - twitter: A high-engagement 1-3 tweet thread summary.
+               - instagram: A punchy caption with relevant hashtags.
+               - linkedin: A professional summary with 3 key takeaways.
+               Tone: Catchy, curiosity-driven, and aligned with wellness.";
+    $prompt = "Post Title: {$post['title']}\nContent: " . strip_tags($post['content']);
+
+    $res = route_ai_request_sync([['role' => 'user', 'content' => $prompt]], $system, 1000, [
+        'provider' => get_setting('ai_provider', 'claude'),
+    ]);
+    header('Content-Type: application/json');
+    echo trim(preg_replace('/^```json|```$/m', '', trim($res)));
+    exit;
+}
+
 // ── EDIT / NEW FORM ───────────────────────────────────────────────────────
 if ($action === 'edit' || $action === 'new') {
     $post = $id ? db_one("SELECT * FROM blog_posts WHERE id=?",[$id]) : null;
@@ -100,6 +122,9 @@ if ($action === 'edit' || $action === 'new') {
             <a href="/blog/<?= h($post['slug']) ?>" target="_blank" class="btn btn-ghost btn-sm">View Live →</a>
           <?php endif ?>
           <button type="button" class="btn btn-primary btn-sm" id="aiWriterBtn" onclick="toggleAiWriter()">✨ AI Writer</button>
+          <?php if ($post): ?>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="generateSocialPack()">📢 Social Pack</button>
+          <?php endif ?>
           <a href="/admin/blog.php" class="btn btn-ghost btn-sm">← Back</a>
         </div>
       </div>
@@ -113,6 +138,16 @@ if ($action === 'edit' || $action === 'new') {
             <button type="button" class="btn btn-primary" onclick="generateAiPost()" id="aiGenBtn">Draft Article</button>
           </div>
           <div id="aiStatus" style="font-size:12px;color:var(--muted);margin-top:10px">Powered by <?= h(get_setting('ai_provider', 'Solen AI')) ?></div>
+        </div>
+      </div>
+
+      <!-- Social Pack Modal -->
+      <div id="socialPackModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)">
+        <div class="card" style="max-width:600px;width:100%;max-height:90vh;overflow:auto">
+          <div class="card-header"><div class="card-title">Social Marketing Pack</div><button type="button" onclick="document.getElementById('socialPackModal').style.display='none'" style="background:none;border:none;color:#fff;cursor:pointer;font-size:20px">×</button></div>
+          <div id="socialPackContent" style="display:flex;flex-direction:column;gap:16px">
+             <div class="text-muted" style="text-align:center;padding:40px">AI is crafting your social posts…</div>
+          </div>
         </div>
       </div>
 
@@ -364,6 +399,39 @@ if ($action === 'edit' || $action === 'new') {
             btn.disabled = false;
             btn.textContent = 'Draft Article';
             status.textContent = 'Ready';
+        }
+    }
+
+    async function generateSocialPack() {
+        const modal = document.getElementById('socialPackModal');
+        const content = document.getElementById('socialPackContent');
+        modal.style.display = 'flex';
+        content.innerHTML = '<div class="text-muted" style="text-align:center;padding:40px">Crafting your viral strategy… ✦</div>';
+
+        try {
+            const fd = new FormData();
+            fd.append('id', '<?= $id ?>');
+            const res = await fetch('/admin/blog.php?action=ai_social_pack', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            content.innerHTML = `
+                <div class="form-group">
+                    <label>Twitter / X Thread</label>
+                    <textarea class="form-control" rows="4" readonly onclick="this.select(); document.execCommand('copy')">${data.twitter}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Instagram / Threads</label>
+                    <textarea class="form-control" rows="4" readonly onclick="this.select(); document.execCommand('copy')">${data.instagram}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>LinkedIn Professional</label>
+                    <textarea class="form-control" rows="4" readonly onclick="this.select(); document.execCommand('copy')">${data.linkedin}</textarea>
+                </div>
+                <div class="text-muted text-sm">Click any box to select text.</div>
+            `;
+        } catch(e) {
+            content.innerHTML = `<div class="alert alert-error">AI Error: ${e.message}</div>`;
         }
     }
     </script>

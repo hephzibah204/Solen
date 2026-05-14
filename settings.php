@@ -268,6 +268,15 @@ input:checked+.slider:before{transform:translateX(20px)}
       </div>
     </div>
 
+    <!-- Data Portability -->
+    <div class="section">
+      <div class="section-title">Data Portability</div>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.65">
+        Download a copy of your personal data, including your conversation history, mood logs, and coach memories in a secure JSON format.
+      </p>
+      <a href="/api/export_data.php" class="btn btn-ghost" style="text-decoration:none;display:inline-block">📥 Download My Data (.json)</a>
+    </div>
+
     <!-- Danger Zone -->
     <div class="section danger-zone">
       <div class="section-title">Danger Zone</div>

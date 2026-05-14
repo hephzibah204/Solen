@@ -258,14 +258,23 @@ function ritual_get_streak(int $userId): array
 
     $streak   = 0;
     $today    = date('Y-m-d');
-    $expected = $today;
+    $yesterday = date('Y-m-d', strtotime('-1 day'));
+    
+    $latest = $rows[0]['date'] ?? null;
+    if (!$latest) return ['current' => 0, 'longest' => 0, 'total_days' => 0];
 
-    foreach ($rows as $row) {
-        if ($row['date'] === $expected) {
-            $streak++;
-            $expected = date('Y-m-d', strtotime($expected . ' -1 day'));
-        } else {
-            break;
+    // If latest completion is neither today nor yesterday, streak is broken
+    if ($latest !== $today && $latest !== $yesterday) {
+        $streak = 0;
+    } else {
+        $expected = $latest;
+        foreach ($rows as $row) {
+            if ($row['date'] === $expected) {
+                $streak++;
+                $expected = date('Y-m-d', strtotime($expected . ' -1 day'));
+            } else {
+                break;
+            }
         }
     }
 
@@ -682,21 +691,23 @@ function _analytics_compute(int $userId): array
     );
     $breakthroughs = (int)($btRows[0]['cnt'] ?? 0);
 
-    // Recovery speed: avg days from high_distress episode to positive mood
+    // Recovery speed: avg days from first_seen to resolved_at for patterns
     $recoveryRows = db_query(
-        "SELECT created_at FROM memory_emotional_patterns
-         WHERE user_id=? AND pattern_type LIKE '%burnout%' AND resolved_at IS NOT NULL
-         ORDER BY resolved_at DESC LIMIT 5",
+        "SELECT first_seen, resolved_at FROM memory_emotional_patterns
+         WHERE user_id=? AND resolved_at IS NOT NULL
+         ORDER BY resolved_at DESC LIMIT 10",
         [$userId]
     );
     $recoverySpeed = null;
     if ($recoveryRows) {
-        $speeds = [];
+        $durations = [];
         foreach ($recoveryRows as $rec) {
-            // Rough heuristic: count days pattern was active
-            $speeds[] = 7; // placeholder — real impl compares created_at/resolved_at
+            $start = strtotime($rec['first_seen']);
+            $end   = strtotime($rec['resolved_at']);
+            $diff  = ($end - $start) / 86400; // convert to days
+            $durations[] = max(1, $diff); // minimum 1 day
         }
-        $recoverySpeed = $speeds ? round(array_sum($speeds) / count($speeds), 1) : null;
+        $recoverySpeed = round(array_sum($durations) / count($durations), 1);
     }
 
     // Journal entries

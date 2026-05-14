@@ -158,10 +158,15 @@ function init_schema(PDO $pdo): void {
         ('smtp_user',        ''),
         ('smtp_pass',        ''),
         ('from_email',       'hello@getsolen.com'),
+        ('stripe_portal_url', '#'),
         ('stripe_pk',        ''),
         ('stripe_sk',        ''),
         ('google_analytics', ''),
         ('footer_text',      '© 2026 Solen Inc. All rights reserved.');
+
+    CREATE INDEX IF NOT EXISTS idx_subs_status_cycle ON subscriptions(status, billing_cycle);
+    CREATE INDEX IF NOT EXISTS idx_coach_msgs_user_date ON coach_messages(user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_users_last_login ON users(last_login);
     ");
 
     // Seed admin user if none exists — generate a random password, never a hardcoded one
@@ -498,6 +503,28 @@ function run_migrations(PDO $pdo): void {
 
     // New login alert IP tracking
     try { $pdo->exec("ALTER TABLE users ADD COLUMN last_ip TEXT"); } catch (PDOException $e) {}
+
+    // Phase 9 — PWA Push Notifications
+    _run_phase9_migrations($pdo);
+}
+
+function _run_phase9_migrations(PDO $pdo): void {
+    $pdo->exec("
+    CREATE TABLE IF NOT EXISTS user_push_subscriptions (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        endpoint    TEXT UNIQUE NOT NULL,
+        p256dh      TEXT NOT NULL,
+        auth        TEXT NOT NULL,
+        created_at  TEXT DEFAULT (datetime('now'))
+    );
+    ");
+
+    // Initialize VAPID keys for PWA Push
+    $ins = $pdo->prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
+    $ins->execute(['vapid_public_key', '']);
+    $ins->execute(['vapid_private_key', '']);
+    $ins->execute(['push_enabled', '0']);
 }
 
 function _run_phase6_migrations(PDO $pdo): void {
@@ -687,6 +714,28 @@ function _seed_streak_articles(PDO $pdo): void {
             [
                 ['What does dopamine actually signal in the brain?', ['Pleasure and satisfaction', 'Anticipation and wanting', 'Safety and calm', 'Memory formation'], 1, 'Dopamine is the anticipation chemical — it fires in response to cues that predict reward, driving the seeking behaviour.'],
                 ['What happens to old addiction pathways in recovery?', ['They are permanently deleted', 'They are gradually overwritten by stronger new pathways', 'They remain unchanged forever', 'They shrink after 30 days'], 1, 'Old neural pathways don\'t disappear — recovery works by building stronger new pathways that gradually take precedence.'],
+            ],
+        ],
+        [
+            'growth',
+            'Emotional Intelligence: The Four Quadrants',
+            'eq-four-quadrants',
+            4,
+            "Emotional Intelligence (EQ) is the ability to recognize, understand, and manage your own emotions while recognizing, understanding, and influencing the emotions of others. Daniel Goleman's model breaks this down into four quadrants:\n\n1. Self-Awareness (Internal/Recognition): Knowing what you're feeling and why.\n2. Self-Management (Internal/Regulation): Staying calm and thinking clearly under pressure.\n3. Social Awareness (External/Recognition): Empathy and reading the room.\n4. Relationship Management (External/Regulation): Communicating clearly and resolving conflict.\n\nUnlike IQ, which is relatively static, EQ is highly developable. High EQ is a stronger predictor of career success and relationship satisfaction than technical skill.",
+            [
+                ['What are the two internal quadrants of Emotional Intelligence?', ['Self-Awareness and Self-Management', 'Social Awareness and Empathy', 'Relationship Management and Logic', 'Self-Awareness and Social Awareness'], 0, 'Self-Awareness and Self-Management deal with your internal state.'],
+                ['Is Emotional Intelligence (EQ) static or developable?', ['It never changes', 'It is highly developable through practice', 'It only changes in childhood', 'It decreases with age'], 1, 'Unlike IQ, EQ is a skill set that can be improved throughout life with intentional practice.'],
+            ],
+        ],
+        [
+            'mindfulness',
+            'The Default Mode Network and Mindfulness',
+            'dmn-mindfulness',
+            5,
+            "The Default Mode Network (DMN) is a collection of brain regions that are active when you aren't focused on the outside world. It's associated with mind-wandering, rumination, and thinking about the self (past/future).\n\nAn overactive DMN is strongly correlated with depression and anxiety. Mindfulness meditation has been shown in fMRI studies to 'quiet' the DMN, shifting activity to the Task Positive Network (TPN) — the network associated with the present moment and external focus.\n\nPracticing presence literally changes the wiring of your brain, reducing the tendency for negative self-talk and increasing focus. Just 10 minutes of focus on the breath can effectively down-regulate the DMN for hours.",
+            [
+                ['When is the Default Mode Network (DMN) most active?', ['When you are solving a hard puzzle', 'When your mind is wandering or ruminating', 'When you are sleeping deeply', 'When you are intensely focused on a task'], 1, 'The DMN is the brain\'s "idle" state, active during mind-wandering and self-referential thought.'],
+                ['How does mindfulness affect the DMN?', ['It makes it more active', 'It has no effect', 'It quiets the DMN and shifts focus to the Task Positive Network', 'It deletes the network'], 2, 'Mindfulness reduces DMN activity, helping to break cycles of rumination and self-criticism.'],
             ],
         ],
     ];

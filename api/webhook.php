@@ -105,7 +105,7 @@ function handle_stripe_webhook(string $raw): void {
 </p>
 <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:20px;">
   <tr><td align="center">
-    <a href="https://billing.stripe.com/p/login/test_placeholder" style="display:inline-block;background:#c5a572;color:#1a1008;padding:13px 32px;border-radius:50px;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;font-weight:600;">Update Payment Method →</a>
+    <a href="<?= h(get_setting('stripe_portal_url', '#')) ?>" style="display:inline-block;background:#c5a572;color:#1a1008;padding:13px 32px;border-radius:50px;text-decoration:none;font-family:Arial,sans-serif;font-size:14px;font-weight:600;">Update Payment Method →</a>
   </td></tr>
 </table>
 <p style="margin:0;font-size:12px;color:rgba(240,237,232,0.35);line-height:1.7;">
@@ -157,43 +157,4 @@ function handle_paystack_webhook(string $raw): void {
     }
     http_response_code(200);
     echo 'ok';
-}
-
-// ── SHARED ────────────────────────────────────────────────────────────────
-function activate_plan(int $userId, string $plan, string $billing, float $amount, string $gateway, string $ref): void {
-    // Idempotency: if we've already processed this exact transaction reference,
-    // skip — prevents duplicate rows when both the webhook and upgrade-success
-    // page fire for the same payment.
-    $existing = db_one(
-        "SELECT id FROM subscriptions WHERE user_id=? AND notes=?",
-        [$userId, "{$gateway}:{$ref}"]
-    );
-    if ($existing) {
-        return; // Already activated — nothing to do.
-    }
-
-    $days    = $billing === 'yearly' ? 365 : 31;
-    $expires = date('Y-m-d H:i:s', strtotime("+{$days} days"));
-
-    // Upgrade the user's plan.
-    get_db()->prepare("UPDATE users SET plan=? WHERE id=?")->execute([$plan, $userId]);
-
-    // Cancel any previously active subscription rows before inserting the new one.
-    get_db()->prepare(
-        "UPDATE subscriptions SET status='cancelled', cancelled_at=datetime('now')
-          WHERE user_id=? AND status='active'"
-    )->execute([$userId]);
-
-    // Insert the new subscription row with the tx ref as a natural idempotency key.
-    db_run(
-        "INSERT INTO subscriptions (user_id, plan, status, amount, billing_cycle, expires_at, notes)
-         VALUES (?, ?, 'active', ?, ?, ?, ?)",
-        [$userId, $plan, $amount, $billing, $expires, "{$gateway}:{$ref}"]
-    );
-
-    // Confirmation Email
-    $user = db_one("SELECT name, email FROM users WHERE id=?", [$userId]);
-    if ($user) {
-        send_payment_success_email($user['email'], $user['name'], $plan, $amount);
-    }
 }

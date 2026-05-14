@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/functions.php';
 
 // ── Session bootstrap ──────────────────────────────────────────────────────
 // We use PHP $_SESSION as a lightweight cache of the token stored in the
@@ -84,7 +85,29 @@ function login_user(string $email, string $password): bool {
     $_SESSION['user_name'] = $user['name'];
     $_SESSION['db_token']  = $token;
 
-    db_run("UPDATE users SET last_login=datetime('now') WHERE id=?", [$user['id']]);
+    $currentIp = $_SERVER['REMOTE_ADDR'] ?? '';
+    
+    // Check for new IP and send alert if it's different (and not the very first login)
+    if (!empty($user['last_ip']) && $user['last_ip'] !== $currentIp && function_exists('send_email')) {
+        $site = get_setting('site_name', 'Solen');
+        $browser = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown device';
+        $time = date('Y-m-d H:i:s T');
+        $html = "<div style='font-family:sans-serif;color:#333;line-height:1.6'>
+            <h2>New login to your {$site} account</h2>
+            <p>Hi {$user['name']},</p>
+            <p>We noticed a new login to your account from a different IP address.</p>
+            <div style='background:#f4f4f5;padding:16px;border-radius:8px;margin:16px 0'>
+                <strong>IP Address:</strong> {$currentIp}<br>
+                <strong>Time:</strong> {$time}<br>
+                <strong>Device/Browser:</strong> {$browser}
+            </div>
+            <p>If this was you, you can safely ignore this message.</p>
+            <p><strong>If you did not log in</strong>, please <a href='https://{$_SERVER['HTTP_HOST']}/login.php'>reset your password</a> immediately.</p>
+        </div>";
+        send_email($user['email'], "New login alert — {$site}", $html);
+    }
+
+    db_run("UPDATE users SET last_login=datetime('now'), last_ip=? WHERE id=?", [$currentIp, $user['id']]);
     return true;
 }
 

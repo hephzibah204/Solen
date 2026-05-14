@@ -12,19 +12,7 @@ $trialDays = $trialing ? max(0, ceil((strtotime($user['trial_ends']) - time()) /
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="Solen"/>
-<meta name="apple-touch-fullscreen" content="yes"/>
-<!-- Apple Touch Icons -->
-<link rel="apple-touch-icon" sizes="180x180" href="/assets/icon-192.png">
-<link rel="apple-touch-icon" sizes="152x152" href="/assets/icon-192.png">
-<link rel="apple-touch-icon" sizes="120x120" href="/assets/icon-128.png">
-<link rel="apple-touch-icon" sizes="76x76"  href="/assets/icon-96.png">
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#07070f" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#07070f">
+<?php pwa_head(); ?>
 <title>Solen — Your Wellness Coach</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -208,32 +196,6 @@ window.SOLEN_AI_PROVIDER = <?= json_encode(get_setting('ai_provider','auto')) ?>
 <script src="/assets/react.production.min.js"></script>
 <script src="/assets/react-dom.production.min.js"></script>
 <script src="/assets/app.bundle.js?v=<?= filemtime(__DIR__ . '/assets/app.bundle.js') ?>"></script>
-
-<div id="pwa-install-banner" role="dialog">
-  <div class="pwa-banner-inner">
-    <div class="pwa-banner-row1">
-      <div class="pwa-app-icon"><img src="/assets/icon-192.png" alt="Solen"></div>
-      <div class="pwa-info">
-        <div class="pwa-title">Install Solen</div>
-        <div class="pwa-subtitle">Your coach, always one tap away.</div>
-      </div>
-      <button class="pwa-close" onclick="this.closest('#pwa-install-banner').classList.remove('visible')">×</button>
-    </div>
-    <div class="pwa-btn-row">
-      <button class="pwa-btn-install" id="pwa-install-btn">📲 Add to Home Screen</button>
-    </div>
-  </div>
-</div>
-
-<script>
-if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js'); }); }
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault(); const banner = document.getElementById('pwa-install-banner');
-  banner.classList.add('visible');
-  document.getElementById('pwa-install-btn').onclick = () => {
-    e.prompt(); e.userChoice.then(() => banner.classList.remove('visible'));
-  };
-});
-</script>
+<?php pwa_body(); ?>
 </body>
 </html>

@@ -17,6 +17,7 @@ $trialDays = get_setting('trial_days', '7');
 <head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Start Free Trial — Solen</title>
+<?php require_once __DIR__ . '/includes/pwa.php'; pwa_head(); ?>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -129,14 +130,6 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-
   </div>
 </div>
 <script>
-// Forcibly unregister the broken service worker that swallows POST requests
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function(registrations) {
-    for(let registration of registrations) {
-      registration.unregister();
-    }
-  });
-}
 // Ensure the button works
 document.querySelector('form').addEventListener('submit', function(e) {
   const btn = document.querySelector('.btn-submit');
@@ -144,5 +137,6 @@ document.querySelector('form').addEventListener('submit', function(e) {
   btn.style.opacity = '0.7';
 });
 </script>
+<?php pwa_body(); ?>
 </body>
 </html>

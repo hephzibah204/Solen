@@ -625,4 +625,10 @@ function activate_plan(int $userId, string $plan, string $billing, float $amount
     
     // Also update the payment_transactions table if it exists
     db_run("UPDATE payment_transactions SET status='completed' WHERE user_id=? AND tx_ref=?", [$userId, $ref]);
+
+    // Send confirmation email (Phase 1)
+    $user = db_one("SELECT name, email FROM users WHERE id=?", [$userId]);
+    if ($user) {
+        send_payment_success_email($user['email'], $user['name'], $plan, $amount);
+    }
 }
