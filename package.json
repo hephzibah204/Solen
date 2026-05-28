@@ -1,27 +1,33 @@
 {
-  "name": "solen",
+  "name": "solen-cloudflare",
   "version": "1.0.0",
-  "description": "A full PHP + SQLite web application with landing page, user authentication, AI wellness coach, admin dashboard, blog CMS, and subscription management.",
-  "main": "sw.js",
+  "description": "Solen Serverless App (Hono + React + D1)",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npx babel assets/app.jsx --presets @babel/preset-react -o assets/app.bundle.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "wrangler pages dev dist",
+    "deploy:pages": "wrangler pages deploy dist",
+    "deploy:worker": "wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "wrangler d1 migrations apply solen-db --local",
+    "db:migrate:prod": "wrangler d1 migrations apply solen-db --remote"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/hephzibah204/Solen.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/hephzibah204/Solen/issues"
-  },
-  "homepage": "https://github.com/hephzibah204/Solen#readme",
   "dependencies": {
-    "@babel/cli": "^7.28.6",
-    "@babel/core": "^7.29.0",
-    "@babel/preset-react": "^7.28.5"
+    "hono": "^4.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "drizzle-orm": "^0.30.0",
+    "jose": "^5.2.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240320.1",
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
+    "@vitejs/plugin-react": "^4.2.1",
+    "drizzle-kit": "^0.20.14",
+    "typescript": "^5.4.3",
+    "vite": "^5.2.6",
+    "wrangler": "^3.38.0"
   }
 }
